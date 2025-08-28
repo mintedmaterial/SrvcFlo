@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServiceFlow AI Investigation</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #1a1a1a; 
+            color: white; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        .section { 
+            margin-bottom: 20px; 
+            padding: 20px; 
+            background: #2a2a2a; 
+            border-radius: 8px; 
+        }
+        .iframe-container { 
+            background: white; 
+            border-radius: 8px; 
+            overflow: hidden; 
+        }
+        .log { 
+            background: #000; 
+            color: #0f0; 
+            padding: 10px; 
+            border-radius: 4px; 
+            font-family: monospace; 
+            font-size: 12px; 
+            height: 200px; 
+            overflow-y: auto; 
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>ServiceFlow AI Frontend Investigation</h1>
+    
+    <div class="section">
+        <h2>Live App at localhost:3000</h2>
+        <p>This should show the current state of the ServiceFlow AI application:</p>
+        <div class="iframe-container">
+            <iframe id="mainApp" src="http://localhost:3000/" width="100%" height="600px" frameborder="0"></iframe>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>API Testing</h2>
+        <button onclick="testPricingAPI()">Test Pricing API</button>
+        <button onclick="testNetworkInspection()">Inspect Network Calls</button>
+        <button onclick="captureScreenshot()">Take Screenshot (Print Page)</button>
+        
+        <h3>Console Output:</h3>
+        <div id="console" class="log"></div>
+    </div>
+
+    <div class="section">
+        <h2>Current Issues Found</h2>
+        <div id="issues">
+            <p>Investigation in progress...</p>
+        </div>
+    </div>
+
+    <script>
+        const consoleEl = document.getElementById('console');
+        const issuesEl = document.getElementById('issues');
+        
+        function log(message) {
+            consoleEl.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function addIssue(issue) {
+            const p = document.createElement('p');
+            p.innerHTML = '⚠️ ' + issue;
+            issuesEl.appendChild(p);
+        }
+
+        async function testPricingAPI() {
+            log('Testing pricing API endpoints...');
+            
+            const endpoints = [
+                '/api/price/swap-amount?network=mainnet&imagePrice=1&videoPrice=2',
+                '/api/price/swap-amount?network=testnet&imagePrice=1&videoPrice=2'
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    log(`Testing: ${endpoint}`);
+                    const response = await fetch(`http://localhost:3000${endpoint}`);
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        log(`✅ ${endpoint} - Status: ${response.status}`);
+                        log(`📊 Data source: ${data.source}, Cache: ${data.cacheDuration}`);
+                        
+                        if (data.source === 'fallback') {
+                            addIssue(`API using fallback pricing instead of OpenOcean for ${endpoint}`);
+                        }
+                    } else {
+                        log(`❌ ${endpoint} - Error: ${response.status}`);
+                        addIssue(`Pricing API error: ${response.status} for ${endpoint}`);
+                    }
+                } catch (error) {
+                    log(`❌ ${endpoint} - Network error: ${error.message}`);
+                    addIssue(`Network error for ${endpoint}: ${error.message}`);
+                }
+            }
+        }
+
+        async function testNetworkInspection() {
+            log('Inspecting network performance...');
+            
+            // Check if we can access the main page
+            try {
+                const response = await fetch('http://localhost:3000/');
+                log(`✅ Main page accessible - Status: ${response.status}`);
+                
+                // Check response time
+                const start = performance.now();
+                await fetch('http://localhost:3000/api/price/swap-amount');
+                const end = performance.now();
+                
+                const responseTime = Math.round(end - start);
+                log(`⏱️ Pricing API response time: ${responseTime}ms`);
+                
+                if (responseTime > 5000) {
+                    addIssue(`Slow API response time: ${responseTime}ms (>5 seconds)`);
+                }
+                
+            } catch (error) {
+                log(`❌ Network inspection failed: ${error.message}`);
+                addIssue(`Network inspection failed: ${error.message}`);
+            }
+        }
+
+        function captureScreenshot() {
+            log('Taking screenshot via print dialog...');
+            window.print();
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', function() {
+            log('🚀 Investigation started');
+            
+            // Test iframe loading
+            const iframe = document.getElementById('mainApp');
+            iframe.onload = function() {
+                log('✅ Main app iframe loaded successfully');
+            };
+            iframe.onerror = function() {
+                log('❌ Main app iframe failed to load');
+                addIssue('Main application failed to load in iframe');
+            };
+            
+            // Run API tests after a short delay
+            setTimeout(() => {
+                testPricingAPI();
+                testNetworkInspection();
+            }, 2000);
+        });
+
+        // Listen for console errors from the iframe
+        window.addEventListener('error', function(e) {
+            log(`❌ JavaScript error: ${e.message}`);
+            addIssue(`JavaScript error: ${e.message}`);
+        });
+    </script>
+</body>
+</html>

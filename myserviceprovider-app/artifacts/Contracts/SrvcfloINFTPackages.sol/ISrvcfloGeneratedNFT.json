@@ -1,0 +1,55 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISrvcfloGeneratedNFT",
+  "sourceName": "Contracts/SrvcfloINFTPackages.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "prompt",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "ipfsHash",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "influencedCollection",
+          "type": "string"
+        },
+        {
+          "internalType": "bool",
+          "name": "isVideo",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "packageTokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "mintGeneration",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

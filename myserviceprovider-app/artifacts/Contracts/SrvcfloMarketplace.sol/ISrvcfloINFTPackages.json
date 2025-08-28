@@ -1,0 +1,60 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISrvcfloINFTPackages",
+  "sourceName": "Contracts/SrvcfloMarketplace.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getPackageInfo",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "packageType",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "maxGenerations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "usedGenerations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "remainingGenerations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "agentMetadata",
+          "type": "string"
+        },
+        {
+          "internalType": "string[]",
+          "name": "collectionInfluences",
+          "type": "string[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "generatedTokenIds",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

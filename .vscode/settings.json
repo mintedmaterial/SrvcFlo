@@ -1,0 +1,20 @@
+{
+    "python.defaultInterpreterPath": "./myserviceprovider-app/Agents/.venv/Scripts/python.exe",
+    "terminal.integrated.cwd": "./myserviceprovider-app/Agents",
+    "python.terminal.activateEnvironment": false,
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "args": ["-NoProfile"]
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "zenMode.showTabs": "single",
+    "zenMode.fullScreen": false,
+    "zenMode.centerLayout": false,
+    "zenMode.hideActivityBar": false,
+    "zenMode.hideLineNumbers": false,
+    "zenMode.hideStatusBar": false,
+    "zenMode.restore": false,
+    "zenMode.silentNotifications": false
+}

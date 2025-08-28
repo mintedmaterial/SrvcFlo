@@ -1,0 +1,108 @@
+name = "serviceflow-ai"
+main = "src/mcp-standalone.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat", "nodejs_als"]
+
+# Custom domain routes
+routes = [
+  { pattern = "srvcflo.com/*", zone_id = "4603a67bfb4408bd3032c8df61372cb0" },
+  { pattern = "www.srvcflo.com/*", zone_id = "4603a67bfb4408bd3032c8df61372cb0" }
+]
+
+# Cloudflare AI binding for MCP server
+[ai]
+binding = "AI"
+
+# MCP server endpoints
+[env.production]
+name = "serviceflow-ai-prod"
+route = { pattern = "srvcflo.com/*", zone_name = "srvcflo.com" }
+
+[env.production.ai]
+binding = "AI"
+
+[env.production.assets]
+directory = "./out"
+binding = "ASSETS"
+run_worker_first = [ "/api/*", "/mcp/*" ]
+
+# D1 Database Configuration for Production
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "serviceflow-waitlist"
+database_id = "663deff9-6ade-462b-82b4-874267e87da0"
+
+[[env.production.d1_databases]]
+binding = "PORTAL_DB"
+database_name = "serviceflow-portal"
+database_id = "18eb9a3e-399f-4e29-89ea-97f18813c82e"
+
+# Durable Objects for MCP Agent state
+[[env.production.durable_objects.bindings]]
+name = "MCP_AGENT"
+class_name = "CloudflareAIMCPServer"
+
+[assets]
+directory = "./out"
+binding = "ASSETS"
+run_worker_first = [ "/api/*", "/mcp/*" ]
+
+# D1 Database Configuration
+[[d1_databases]]
+binding = "DB"
+database_name = "serviceflow-waitlist"
+database_id = "663deff9-6ade-462b-82b4-874267e87da0"
+
+[[d1_databases]]
+binding = "PORTAL_DB"
+database_name = "serviceflow-portal"
+database_id = "18eb9a3e-399f-4e29-89ea-97f18813c82e"
+
+# Durable Objects for MCP Agent state
+[[durable_objects.bindings]]
+name = "MCP_AGENT"
+class_name = "CloudflareAIMCPServer"
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
+
+# KV for caching generation results
+[[kv_namespaces]]
+binding = "GENERATION_CACHE"
+id = "your_kv_namespace_id_here"
+preview_id = "your_preview_kv_id_here"
+
+# R2 for storing generated content
+[[r2_buckets]]
+binding = "GENERATED_CONTENT"
+bucket_name = "serviceflow-generated-content"
+
+# Cloudflare Zero Trust Authentication Settings
+[env.production.vars]
+CLOUDFLARE_ACCESS_TEAM_NAME = "serviceflow-ai"
+CLOUDFLARE_ACCESS_AUDIENCE = "serviceflow-audience"
+AUTH_ENABLED = "true"
+ENVIRONMENT = "production"
+SONIC_PAYMENT_CONTRACT = "your_deployed_payment_contract_address"
+BANDIT_KIDZ_STAKING_CONTRACT = "your_deployed_staking_contract_address"
+SONIC_CHAIN_ID = "146"
+
+# Environment variables (set these using wrangler secret put)
+# ADMIN_API_KEY - admin_sk_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
+# AGNO_API_KEY - ag-AuxQ6sqPMTCNBvEwfQ0h-_ZJrq48Ce3SvHqnGZi1Tno
+# CLOUDFLARE_API_TOKEN - Your Cloudflare API token for managing Access
+# GOOGLE_CLIENT_ID - Google OAuth client ID
+# GOOGLE_CLIENT_SECRET - Google OAuth client secret
+# ADMIN_EMAIL - Your admin email address
+# WEB3AUTH_CLIENT_SECRET - Web3Auth client secret
+# SONIC_RPC_URL - Sonic blockchain RPC URL
+
+# Development environment variables
+[vars]
+CLOUDFLARE_ACCESS_TEAM_NAME = "serviceflow-ai-dev"
+AUTH_ENABLED = "false"
+ENVIRONMENT = "development"
+SONIC_PAYMENT_CONTRACT = "0x..."
+BANDIT_KIDZ_STAKING_CONTRACT = "0x..."
+SONIC_CHAIN_ID = "146"

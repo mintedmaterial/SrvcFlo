@@ -1,0 +1,81 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# test
+/test-results.json
+
+# SSL/TLS Certificates and Private Keys
+*.key
+*.pem
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# API Keys and Secrets
+rootkey.csv
+*secret*
+client_secret_*
+deploy-secrets.bat
+
+# Credentials and Tokens
+credentials/
+tokens/
+*token*.json
+*.json.bak
+
+# Agent directories (belong to agent-ui project)
+Agents/
+Agents-pending/
+Tools/
+storage/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup

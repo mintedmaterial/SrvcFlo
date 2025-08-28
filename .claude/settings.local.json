@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 10 uv run:*)",
+      "mcp__serena__write_memory",
+      "mcp__serena__search_for_pattern",
+      "mcp__serena__replace_regex",
+      "mcp__serena__list_dir",
+      "mcp__serena__insert_after_symbol",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "WebFetch(domain:docs.agno.com)"
+    ],
+    "deny": [],
+    "additionalDirectories": [
+      "C:\\Users\\PC\\SonicQuantAgenticAI"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "serena",
+    "http-server",
+    "ide",
+    "openzeppelin",
+    "cloudflare",
+    "playwright"
+  ]
+}

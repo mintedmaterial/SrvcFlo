@@ -1,0 +1,22 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://srvcflo.com",
+      "https://www.srvcflo.com",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE"
+    ],
+    "AllowedHeaders": [
+      "*"
+    ],
+    "ExposeHeaders": [
+      "ETag"
+    ],
+    "MaxAgeSeconds": 3600
+  }
+]

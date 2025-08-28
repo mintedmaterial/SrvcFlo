@@ -1,0 +1,74 @@
+name = "serviceflow-ai-inft"
+main = "src/inft-worker-main.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat", "nodejs_als"]
+
+# INFT Agent Worker - Separate from main site
+# This handles: /api/flo-agent/, Durable Objects for agents
+
+# Cloudflare AI binding for MCP server
+[ai]
+binding = "AI"
+
+# Durable Objects for INFT Agents
+[durable_objects]
+bindings = [
+  { name = "INFT_AGENT", class_name = "INFTAgentDurableObject", script_name = "serviceflow-ai-inft" }
+]
+
+[[migrations]]
+tag = "v1" # Should be unique for each entry
+new_classes = ["INFTAgentDurableObject"]
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
+
+# KV for caching price data and generation results
+[[kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "eb9dda04c33d4622a6d87b159b0a5a7d"
+
+[[kv_namespaces]]
+binding = "GENERATION_CACHE"
+id = "75bcff3d8269497fa3bd60da679380b5"
+
+# R2 Buckets for AI Content and File Storage
+[[r2_buckets]]
+binding = "AI_CONTENT"
+bucket_name = "serviceflow-ai-content"
+
+[[r2_buckets]]
+binding = "USER_UPLOADS"
+bucket_name = "serviceflow-user-uploads"
+
+[[r2_buckets]]
+binding = "NFT_METADATA"
+bucket_name = "serviceflow-nft-metadata"
+
+# D1 Database Configuration
+[[d1_databases]]
+binding = "DB"
+database_name = "serviceflow-waitlist"
+database_id = "663deff9-6ade-462b-82b4-874267e87da0"
+
+[[d1_databases]]
+binding = "PORTAL_DB"
+database_name = "serviceflow-portal"
+database_id = "18eb9a3e-399f-4e29-89ea-97f18813c82e"
+
+# Environment variables for INFT worker
+[vars]
+CLOUDFLARE_ACCESS_TEAM_NAME = "serviceflow-ai-inft"
+AUTH_ENABLED = "false"
+ENVIRONMENT = "development"
+CLOUDFLARE_ACCOUNT_HASH = "your-dev-account-hash"
+SONIC_CHAIN_ID = "146"
+SONIC_RPC_URL = "https://rpc.soniclabs.com"
+SONIC_PAYMENT_CONTRACT_V2 = "0x09575A8046048816317C41f9Cf37267E8486bb9b"
+SONIC_CREDITS_NFT_CONTRACT = "0x6B57563377181967C468002Cb11566c561f8DAc6"
+BANDIT_KIDZ_STAKING_CONTRACT = "0x103ce561d5137f137c9A86670812287B1B258499"
+BANDIT_KIDZ_NFT_CONTRACT = "0x45bc8a938e487fde4f31a7e051c2b63627f6f966"
+ERC7857_VERIFIABLE_INFT_CONTRACT = "0x5D2258896b74e972115b7CB189137c4f9F1446d4"
+INFT_GENERATED_NFT_CONTRACT = "0x[DEPLOYED_GENERATED_NFT_CONTRACT_ADDRESS]"
+INFT_MARKETPLACE_CONTRACT = "0x[DEPLOYED_MARKETPLACE_CONTRACT_ADDRESS]"

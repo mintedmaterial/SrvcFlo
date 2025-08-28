@@ -1,0 +1,21 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://srvcflo.com",
+      "https://www.srvcflo.com"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "POST",
+      "DELETE"
+    ],
+    "AllowedHeaders": [
+      "Content-Type",
+      "Authorization"
+    ],
+    "ExposeHeaders": [
+      "ETag"
+    ],
+    "MaxAgeSeconds": 1800
+  }
+]

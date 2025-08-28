@@ -1,0 +1,241 @@
+name = "serviceflow-ai"
+main = "src/mcp-standalone.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat", "nodejs_als"]
+
+# Custom domain routes for main ServiceFlow AI site
+routes = [
+  { pattern = "srvcflo.com/*", zone_id = "4603a67bfb4408bd3032c8df61372cb0" },
+  { pattern = "www.srvcflo.com/*", zone_id = "4603a67bfb4408bd3032c8df61372cb0" }
+]
+
+# Cloudflare AI binding for MCP server
+[ai]
+binding = "AI"
+
+# Durable Objects for INFT Agents - KEPT FOR COMPATIBILITY
+[durable_objects]
+bindings = [
+  { name = "INFT_AGENT", class_name = "INFTAgentDurableObject", script_name = "serviceflow-ai" }
+]
+
+[[migrations]]
+tag = "v1" # Should be unique for each entry
+new_classes = ["INFTAgentDurableObject"]
+
+[env.staging]
+name = "serviceflow-ai-staging"
+# This will be available at serviceflow-ai-staging.serviceflowagi.workers.dev
+
+[env.staging.ai]
+binding = "AI"
+
+# Staging Durable Objects
+[env.staging.durable_objects]
+bindings = [
+  { name = "INFT_AGENT", class_name = "INFTAgentDurableObject", script_name = "serviceflow-ai-staging" }
+]
+
+[env.staging.vars]
+CLOUDFLARE_ACCESS_TEAM_NAME = "serviceflow-ai-staging"
+AUTH_ENABLED = "false"
+ENVIRONMENT = "staging"
+CLOUDFLARE_ACCOUNT_HASH = "your-staging-account-hash"
+SONIC_CHAIN_ID = "146"
+SONIC_RPC_URL = "https://rpc.soniclabs.com"
+SONIC_PAYMENT_CONTRACT_V2 = "0x09575A8046048816317C41f9Cf37267E8486bb9b"
+SONIC_CREDITS_NFT_CONTRACT = "0x6B57563377181967C468002Cb11566c561f8DAc6"
+BANDIT_KIDZ_STAKING_CONTRACT = "0x103ce561d5137f137c9A86670812287B1B258499"
+BANDIT_KIDZ_NFT_CONTRACT = "0x45bc8a938e487fde4f31a7e051c2b63627f6f966"
+ERC7857_VERIFIABLE_INFT_CONTRACT = "0x5D2258896b74e972115b7CB189137c4f9F1446d4"
+INFT_GENERATED_NFT_CONTRACT = "0x[DEPLOYED_GENERATED_NFT_CONTRACT_ADDRESS]"
+INFT_MARKETPLACE_CONTRACT = "0x[DEPLOYED_MARKETPLACE_CONTRACT_ADDRESS]"
+
+# Staging D1 Database Configuration
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "serviceflow-waitlist-staging"
+database_id = "staging-database-id"
+
+[[env.staging.d1_databases]]
+binding = "PORTAL_DB"
+database_name = "serviceflow-portal-staging"
+database_id = "staging-portal-database-id"
+
+# Staging R2 Buckets
+[[env.staging.r2_buckets]]
+binding = "AI_CONTENT"
+bucket_name = "serviceflow-ai-content-staging"
+
+[[env.staging.r2_buckets]]
+binding = "USER_UPLOADS"
+bucket_name = "serviceflow-user-uploads-staging"
+
+[[env.staging.r2_buckets]]
+binding = "NFT_METADATA"
+bucket_name = "serviceflow-nft-metadata-staging"
+
+[[env.staging.r2_buckets]]
+binding = "GENERATED_CONTENT"
+bucket_name = "serviceflow-generated-content-staging"
+
+# Staging KV Namespaces
+[[env.staging.kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "staging_price_cache_kv_id"
+
+[[env.staging.kv_namespaces]]
+binding = "GENERATION_CACHE"
+id = "staging_generation_cache_kv_id"
+
+[env.production]
+name = "serviceflow-ai-prod"
+# route = { pattern = "srvcflo.com/*", zone_name = "srvcflo.com" } # REMOVED
+
+[env.production.ai]
+binding = "AI"
+
+# Assets removed for INFT Workers deployment
+# [env.production.assets]
+# directory = "./out"
+# binding = "ASSETS"
+# run_worker_first = [ "/api/*" ]
+
+# Production R2 Buckets
+[[env.production.r2_buckets]]
+binding = "AI_CONTENT"
+bucket_name = "serviceflow-ai-content"
+
+[[env.production.r2_buckets]]
+binding = "USER_UPLOADS"
+bucket_name = "serviceflow-user-uploads"
+
+[[env.production.r2_buckets]]
+binding = "NFT_METADATA"
+bucket_name = "serviceflow-nft-metadata"
+
+# D1 Database Configuration for Production
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "serviceflow-waitlist"
+database_id = "663deff9-6ade-462b-82b4-874267e87da0"
+
+[[env.production.d1_databases]]
+binding = "PORTAL_DB"
+database_name = "serviceflow-portal"
+database_id = "18eb9a3e-399f-4e29-89ea-97f18813c82e"
+
+# Assets removed for INFT Workers deployment - using pure API backend
+# [assets]
+# directory = "./out"
+# binding = "ASSETS"
+# run_worker_first = [ "/api/*" ]
+
+# D1 Database Configuration
+[[d1_databases]]
+binding = "DB"
+database_name = "serviceflow-waitlist"
+database_id = "663deff9-6ade-462b-82b4-874267e87da0"
+
+[[d1_databases]]
+binding = "PORTAL_DB"
+database_name = "serviceflow-portal"
+database_id = "18eb9a3e-399f-4e29-89ea-97f18813c82e"
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
+
+
+# KV for caching price data and generation results
+[[kv_namespaces]]
+binding = "PRICE_CACHE"
+id = "eb9dda04c33d4622a6d87b159b0a5a7d"
+
+[[kv_namespaces]]
+binding = "GENERATION_CACHE"
+id = "75bcff3d8269497fa3bd60da679380b5"
+
+# R2 Buckets for AI Content and File Storage
+# Note: Create these buckets in Cloudflare dashboard first
+[[r2_buckets]]
+binding = "AI_CONTENT"
+bucket_name = "serviceflow-ai-content"
+preview_bucket_name = "serviceflow-ai-content-preview"
+
+[[r2_buckets]]
+binding = "USER_UPLOADS"
+bucket_name = "serviceflow-user-uploads"
+preview_bucket_name = "serviceflow-user-uploads-preview"
+
+[[r2_buckets]]
+binding = "NFT_METADATA"
+bucket_name = "serviceflow-nft-metadata"
+preview_bucket_name = "serviceflow-nft-metadata-preview"
+
+
+# Cloudflare Zero Trust Authentication Settings
+[env.production.vars]
+CLOUDFLARE_ACCESS_TEAM_NAME = "serviceflow-ai"
+CLOUDFLARE_ACCESS_AUDIENCE = "serviceflow-audience"
+AUTH_ENABLED = "true"
+ENVIRONMENT = "production"
+CLOUDFLARE_ACCOUNT_HASH = "your-account-hash"
+SONIC_CHAIN_ID = "146"
+SONIC_RPC_URL = "https://rpc.soniclabs.com"
+SONIC_PAYMENT_CONTRACT_V2 = "0x09575A8046048816317C41f9Cf37267E8486bb9b"
+SONIC_CREDITS_NFT_CONTRACT = "0x6B57563377181967C468002Cb11566c561f8DAc6"
+BANDIT_KIDZ_STAKING_CONTRACT = "0x103ce561d5137f137c9A86670812287B1B258499"
+BANDIT_KIDZ_NFT_CONTRACT = "0x45bc8a938e487fde4f31a7e051c2b63627f6f966"
+ERC7857_VERIFIABLE_INFT_CONTRACT = "0x5D2258896b74e972115b7CB189137c4f9F1446d4"
+INFT_GENERATED_NFT_CONTRACT = "0x[DEPLOYED_GENERATED_NFT_CONTRACT_ADDRESS]"
+INFT_MARKETPLACE_CONTRACT = "0x[DEPLOYED_MARKETPLACE_CONTRACT_ADDRESS]"
+
+# Environment variables (set these using wrangler secret put)
+# Core API Keys
+# ADMIN_API_KEY - admin_sk_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
+# AGNO_API_KEY - ag-AuxQ6sqPMTCNBvEwfQ0h-_ZJrq48Ce3SvHqnGZi1Tno
+
+# AI Generation APIs
+# KIE_AI_API_KEY - Your KIE.AI API key for image/video generation
+# OPENAI_API_KEY - OpenAI API key for advanced AI features
+
+# Cloudflare
+# CLOUDFLARE_API_TOKEN - Your Cloudflare API token for managing Access
+# CLOUDFLARE_ZONE_ID - Zone ID for domain management
+
+# Authentication
+# GOOGLE_CLIENT_ID - Google OAuth client ID
+# GOOGLE_CLIENT_SECRET - Google OAuth client secret
+# ADMIN_EMAIL - Your admin email address
+
+# Web3 and Blockchain
+# SONIC_BACKEND_PRIVATE_KEY - Private key for Sonic blockchain backend operations
+# WALLET_CONNECT_PROJECT_ID - WalletConnect project ID for wagmi
+
+# Payment Processing
+# STRIPE_SECRET_KEY - Stripe secret key for fiat payments
+# STRIPE_WEBHOOK_SECRET - Stripe webhook signing secret
+# CREEM_API_KEY - Creem.io API key for crypto payments
+# CREEM_WEBHOOK_SECRET - Creem.io webhook signing secret
+
+# External Services
+# MONGODB_URI - MongoDB connection string for user data
+# SENDGRID_API_KEY - SendGrid API key for email services
+# OPENOCEAN_API_KEY - Set using: wrangler secret put OPENOCEAN_API_KEY
+
+# Development environment variables (using mainnet for V2 testing)
+[vars]
+CLOUDFLARE_ACCESS_TEAM_NAME = "serviceflow-ai-dev"
+AUTH_ENABLED = "false"
+ENVIRONMENT = "development"
+CLOUDFLARE_ACCOUNT_HASH = "your-dev-account-hash"
+SONIC_CHAIN_ID = "146"
+SONIC_RPC_URL = "https://rpc.soniclabs.com"
+SONIC_PAYMENT_CONTRACT_V2 = "0x09575A8046048816317C41f9Cf37267E8486bb9b"
+SONIC_CREDITS_NFT_CONTRACT = "0x6B57563377181967C468002Cb11566c561f8DAc6"
+BANDIT_KIDZ_STAKING_CONTRACT = "0x103ce561d5137f137c9A86670812287B1B258499"
+BANDIT_KIDZ_NFT_CONTRACT = "0x45bc8a938e487fde4f31a7e051c2b63627f6f966"
+ERC7857_VERIFIABLE_INFT_CONTRACT = "0x5D2258896b74e972115b7CB189137c4f9F1446d4"
+INFT_GENERATED_NFT_CONTRACT = "0x[DEPLOYED_GENERATED_NFT_CONTRACT_ADDRESS]"
+INFT_MARKETPLACE_CONTRACT = "0x[DEPLOYED_MARKETPLACE_CONTRACT_ADDRESS]"

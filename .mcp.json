@@ -1,0 +1,55 @@
+{
+  "mcpServers": {
+        "serena": {
+          "type": "stdio",
+          "command": "cmd /c uvx",
+          "args": [
+            "--from",
+            "git+https://github.com/oraios/serena",
+            "serena",
+            "start-mcp-server",
+            "--context",
+            "ide-assistant",
+            "--project",
+            "C:\\Users\\PC\\ServiceApp"
+          ],
+          "env": {}
+        },
+        "http-server": {
+          "type": "stdio",
+          "command": "cmd /c uvx",
+          "args": [
+            "mcp-server-http"
+          ],
+          "env": {}
+        },
+        "ide": {
+          "type": "stdio",
+          "command": "cmd /c uvx",
+          "args": [
+            "mcp-server-ide"
+          ],
+          "env": {}
+        },
+        "openzeppelin": {
+          "type": "http",
+          "url": "https://mcp.openzeppelin.com/contracts/solidity/mcp"
+        },
+        "cloudflare": {
+          "type": "stdio",
+          "command": "uvx",
+          "args": [
+            "mcp-server-cloudflare"
+          ],
+          "env": {}
+        },
+        "playwright": {
+          "type": "stdio",
+          "command": "mcd /c npx",
+          "args": [
+            "@playwright/mcp@latest"
+          ],
+          "env": {}
+       }
+    }
+}

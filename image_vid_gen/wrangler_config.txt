@@ -1,0 +1,79 @@
+# wrangler.toml - Enhanced configuration for ServiceFlow AI with generation features
+
+name = "serviceflow-ai-worker"
+main = "src/worker.ts"
+compatibility_date = "2024-12-01"
+
+# Environment variables (set these in Cloudflare dashboard or use wrangler secret)
+[env.production.vars]
+ENVIRONMENT = "production"
+
+# Secrets to set via: wrangler secret put SECRET_NAME
+# wrangler secret put KIE_AI_API_KEY
+# wrangler secret put STRIPE_SECRET_KEY  
+# wrangler secret put STRIPE_WEBHOOK_SECRET
+# wrangler secret put ADMIN_API_KEY
+# wrangler secret put OPENAI_API_KEY
+# wrangler secret put SRVCFLO_AGENT_TOKEN
+
+# D1 Database bindings
+[[d1_databases]]
+binding = "DB"
+database_name = "serviceflow-ai-db"
+database_id = "your-d1-database-id"
+
+[[d1_databases]]
+binding = "PORTAL_DB"
+database_name = "serviceflow-portal-db"
+database_id = "your-portal-db-id"
+
+# Durable Objects
+[durable_objects]
+bindings = [
+  { name = "GENERATION_TASKS", class_name = "GenerationTask" }
+]
+
+# Durable Object migrations
+[[migrations]]
+tag = "v1"
+new_classes = ["GenerationTask"]
+
+# R2 bindings for file storage (optional, for storing generated content)
+[[r2_buckets]]
+binding = "GENERATED_CONTENT"
+bucket_name = "serviceflow-ai-generated-content"
+
+# KV bindings for caching (optional)
+[[kv_namespaces]]
+binding = "CACHE"
+id = "your-kv-namespace-id"
+
+# Static assets
+[site]
+bucket = "./dist"
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Analytics
+[analytics]
+enabled = true
+
+# Limits
+[limits]
+cpu_ms = 30000
+
+# Environment-specific configurations
+[env.development]
+name = "serviceflow-ai-worker-dev"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+AGNO_AGENT_BASE_URL = "http://localhost:8000"
+
+[env.staging]
+name = "serviceflow-ai-worker-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
