@@ -14,15 +14,45 @@ The following features have been implemented:
 - [x] **Multi-Social Media Integration** - Facebook, X/Twitter, Discord agents with rate limiting and automation `COMPLETED`
 - [x] **Cloudflare Workers Integration** - Edge computing setup for global agent deployment `COMPLETED`
 - [x] **OpenOcean DeFi Integration** - Sonic mainnet token swapping with referral rewards via openocean-swap-widget.tsx `COMPLETED`
+- [x] **dRPC Cloud Node Integration** - Professional blockchain infrastructure with enhanced reliability, monitoring, and performance for all Sonic blockchain operations `COMPLETED`
+- [x] **NFT-Based Team Access Control** - Authentication system using Bandit Kidz NFT ownership verification for team member access to ServiceFlow AI systems `COMPLETED`
+- [x] **Dual Authentication Architecture** - Separation of concerns where Agno playground handles builder auth (Google/GitHub) and Next.js UI handles team auth via NFT verification `COMPLETED`
+- [x] **Discord Bot Separation** - Extracted Discord bot functionality from core user management to prevent startup conflicts and enable optional Discord integration `COMPLETED`
+- [x] **Discord Community Infrastructure** - Implemented comprehensive Discord integration with 10 specialized channels, intelligent routing system, and MCP server architecture for community management `COMPLETED`
 
 ## Phase 1: Sonic Ecosystem Launch
 
 **Goal:** Successfully deploy and test the core monetization system on Sonic blockchain with advanced trading agents and Sonic-themed rebranding
 **Success Criteria:** 100+ successful testnet transactions, complete UI rebrand, $10K+ testnet volume, automated trading system operational
 
+### Architecture Overview
+
+**Two Distinct Agent Systems:**
+
+1. **ServiceFlow Team Agents** (Internal Operations)
+   - Deployed in Cloudflare Containers for scalable business operations
+   - Managed via Team Admin Dashboard (/admin/team)
+   - Purpose: ServiceFlow AI's internal automation (content, finance, research, community)
+
+2. **User iNFT Agents** (Customer-Owned Assets)
+   - Blockchain-native agents owned by users as ERC7857VerifiableINFT
+   - Execute serverlessly via Cloudflare Workers (not containerized)
+   - Generate content that mints as NFTs to user's collections
+   - Revenue flows to NFT owner wallets
+
 ### Features
 
+- [x] **dRPC Web API Integration** - Complete dRPC cloud node API integration in agent-ui/src/app with TypeScript interfaces, React hooks, and dashboard components `COMPLETED`
 - [ ] **Agent-UI Sonic Rebranding** - Complete Sonic aesthetic overhaul with animated backgrounds, blue/cyan Sonic colors (#00D4FF, #0099CC, #00FFFF), and generative UI using Claude Code HTML output `L`
+- [ ] **ServiceFlow Team Agent System** - Internal business operation agents deployed in Cloudflare Containers for ServiceFlow AI operations `XL`
+  - Cloudflare Container deployment for all backend agents (C:\Users\PC\ServiceApp\agent-ui\Agents\)
+  - Team coordination workflows: sonic_content_team.py, sonic_finance_team.py, sonic_research_team.py
+  - Individual specialized agents: ecosystem_analyst.py, discord_bot_integration.py, coincodex_pipeline.py, agno_assist.py
+  - Discord Community Manager with 10-channel routing system and DALL-E integration
+  - Team admin dashboard at /admin/team for real-time agent management
+  - Inter-container communication for collaborative team workflows
+  - Shared state management via Cloudflare KV for team coordination
+  - Live monitoring, logging, and start/stop/restart functionality
 - [ ] **Advanced Trading Agent System** - Comprehensive NFT, ERC-20, and DeFi analyst agents with user auth and customizable strategies `XL`
   - Strategy Agent with backtesting capabilities and Coindesk Full API integration
   - Trading Agent with PaintSwap NFT marketplace integration  
@@ -32,9 +62,24 @@ The following features have been implemented:
   - User-configurable parameters, strategies, and auto-trade toggle
   - Volume and indicator-based triggers for automated execution
 - [ ] **Sonic Testnet Payment Integration** - Full testing of payment flows, contract interactions, and revenue splitting `M`
-- [ ] **ServiceFlow iNFT System** - Performance-based NFT rewards that earn $SERV tokens based on agent metrics `L`
+- [ ] **ServiceFlow iNFT Agent System** - User-owned AI agents minted as ERC7857VerifiableINFT that generate content and mint NFTs to their own ERC-721 collections `XL`
+  - ERC7857VerifiableINFT.sol integration for agent identity NFTs
+  - ServiceFlowAgentFactory.sol for automated agent creation and collection deployment
+  - IPFS storage for public agent metadata (name, instructions, prompts, tools)
+  - Cloudflare KV storage for private data (API keys, secrets, earnings)
+  - Agent profile picture generation during minting process
+  - On-demand serverless agent execution via Cloudflare Workers (not containerized)
+  - Generated content automatically mints to agent's dedicated ERC-721 collection
+  - Revenue sharing: agent earnings flow to NFT owner's wallet
 - [ ] **Dual-Token Implementation** - Deploy $FLO (governance) and $SERV (utility) token contracts with proper tokenomics `M`
 - [ ] **Bandit Kidz NFT Staking** - Integrate existing NFT collection for 20% revenue sharing rewards (updated tokenomics) `M`
+- [ ] **Discord Community Management System** - Enhanced Discord bot with channel-specific AI responses, live data feeds, and automated community engagement `M`
+  - Real-time NFT transaction monitoring from PaintSwap with automated Discord notifications
+  - Twitter/X feed aggregation from Sonic Labs and community leaders with intelligent filtering
+  - Channel-specific AI responses with context-aware routing for 10 specialized channels
+  - DALL-E image generation for content publishing, user interaction, and generation voting channels
+  - Automated emoji reactions and community engagement with sentiment analysis
+  - Discord analytics and engagement metrics stored in enhanced Supabase MCP
 - [ ] **Voting System for Generated Content** - Community voting mechanism with $SERV token rewards `S`
 - [ ] **Content Agent Reconfiguration** - Update and optimize existing content agent for improved social media automation `M`
 
@@ -47,6 +92,10 @@ The following features have been implemented:
 - PaintSwap API integration for NFT marketplace data
 - Silo Finance and Fly.trade API integrations
 - What Exchange API key and account ID configuration for team agents
+- dRPC cloud node monitoring dashboard integration for infrastructure oversight
+- Discord bot token and channel permissions for ServiceFlow AI Discord server
+- Twitter/X API access for community feed aggregation
+- OpenAI API access for DALL-E image generation and Discord channel AI responses
 
 ## Phase 2: Agent Launchpad & Workflow Builder
 
@@ -56,10 +105,11 @@ The following features have been implemented:
 ### Features
 
 - [ ] **Visual Workflow Builder** - Drag-and-drop interface for creating specialized AI agents without coding `XL`
-- [ ] **Agent Template Library** - Pre-built templates for common use cases (social media, customer service, trading) `M`
+- [ ] **Agent Template Library** - Pre-built templates for common use cases (social media, customer service, trading, Discord bots) `M`
 - [ ] **Multi-Provider AI Orchestration** - Seamless switching between OpenAI, Groq, Gemini with automatic failover `L`
-- [ ] **Real-Time Agent Testing** - Local chat interface for testing agents before deployment `M`
-- [ ] **Agent Marketplace** - User-created agents available for purchase/licensing with revenue sharing `L`
+- [ ] **Real-Time Agent Testing** - Local chat interface for testing agents before deployment with Discord channel simulation `M`
+- [ ] **Agent Marketplace** - User-created agents available for purchase/licensing with revenue sharing including Discord community bots `L`
+- [ ] **Advanced Discord Integration** - User-created Discord bots with custom channel routing, automated moderation, and community engagement features `M`
 - [ ] **Advanced Analytics Dashboard** - Agent performance metrics, revenue tracking, and optimization suggestions `M`
 - [ ] **Team Collaboration Tools** - Multi-user agent editing, version control, and deployment permissions `L`
 - [ ] **Orderly Network Integration** - Advanced omnichain trading with professional order management `L`

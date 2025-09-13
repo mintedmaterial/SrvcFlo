@@ -168,7 +168,7 @@ export default function iNFTAgentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-black text-white pt-16">
       {/* Cyberpunk background effects */}
       <div className="fixed inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>

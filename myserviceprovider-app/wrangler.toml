@@ -9,6 +9,12 @@ routes = [
   { pattern = "www.srvcflo.com/*", zone_id = "4603a67bfb4408bd3032c8df61372cb0" }
 ]
 
+# Serve static assets from Next.js build output
+[assets]
+directory = "./out"
+binding = "ASSETS"
+run_worker_first = [ "/api/*" ]
+
 # Cloudflare AI binding for MCP server
 [ai]
 binding = "AI"

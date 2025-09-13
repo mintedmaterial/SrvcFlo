@@ -27,6 +27,8 @@ export function useSonicPayment() {
       if (!window.ethereum) throw new Error('Wallet not detected');
       //@ts-ignore
       await window.ethereum.request({ method: 'eth_requestAccounts' });
+      
+      // Always use browser provider for signer, but with dRPC for network calls
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(SONIC_CONTRACT_ADDRESS, SONIC_ABI, signer);

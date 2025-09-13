@@ -119,8 +119,10 @@ function FloatingIcons({ direction }: { direction: number }) {
 
 export default function BackgroundPaths({
   title = "Background Paths",
+  onEnter,
 }: {
   title?: string
+  onEnter?: () => void
 }) {
   const words = title.split(" ")
 
@@ -171,13 +173,14 @@ export default function BackgroundPaths({
           >
             <Button
               variant="ghost"
+              onClick={onEnter}
               className="rounded-[1.15rem] px-8 py-6 text-lg font-semibold backdrop-blur-md 
                             bg-white/10 hover:bg-white/20 
                             text-white transition-all duration-300 
                             group-hover:-translate-y-0.5 border border-white/20
                             hover:shadow-md hover:shadow-white/10"
             >
-              <span className="opacity-90 group-hover:opacity-100 transition-opacity">Discover Excellence</span>
+              <span className="opacity-90 group-hover:opacity-100 transition-opacity">Enter ServiceFlow AI</span>
               <span
                 className="ml-3 opacity-70 group-hover:opacity-100 group-hover:translate-x-1.5 
                                 transition-all duration-300"

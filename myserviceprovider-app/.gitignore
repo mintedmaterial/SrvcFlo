@@ -43,6 +43,9 @@ rootkey.csv
 client_secret_*
 deploy-secrets.bat
 
+# Authentication Configuration (contains wallet addresses)
+lib/auth-config.ts
+
 # Credentials and Tokens
 credentials/
 tokens/

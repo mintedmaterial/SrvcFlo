@@ -19,6 +19,10 @@ Global tech stack defaults for Agent OS projects, overridable in project-specifi
 - Font Provider: Google Fonts
 - Font Loading: Self-hosted for performance
 - Icons: Lucide React components
+- Blockchain Infrastructure: dRPC Cloud Node Service
+- Sonic RPC Endpoints: https://lb.drpc.org/sonic/[API_KEY]
+- WebSocket Support: wss://lb.drpc.org/sonic/[API_KEY]
+- Chain Monitoring: dRPC Statistics API integration
 - Application Hosting: Digital Ocean App Platform/Droplets
 - Hosting Region: Primary region based on user base
 - Database Hosting: Digital Ocean Managed PostgreSQL

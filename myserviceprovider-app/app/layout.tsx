@@ -5,8 +5,17 @@ import Link from "next/link"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import FacebookNavLink from "@/components/facebook-nav-link"
-import WagmiProviderWrapper from "@/components/wagmi-provider"
+import TopNavigation from "@/components/top-navigation"
 import { Toaster } from "react-hot-toast"
+import dynamic from "next/dynamic"
+
+const WagmiProviderWrapper = dynamic(
+  () => import('@/components/wagmi-provider'),
+  { 
+    ssr: false,
+    loading: () => <div>Loading...</div>
+  }
+)
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -25,6 +34,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <WagmiProviderWrapper>
+            <TopNavigation />
             <FacebookNavLink />
             {children}
             <Toaster 

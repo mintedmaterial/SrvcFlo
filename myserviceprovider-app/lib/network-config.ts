@@ -7,7 +7,11 @@ export const SONIC_MAINNET = defineChain({
   id: 146,
   name: "Sonic",
   nativeCurrency: { name: "Sonic", symbol: "S", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.soniclabs.com"] } },
+  rpcUrls: { 
+    default: { 
+      http: [process.env.NEXT_PUBLIC_DRPC_HTTP_URL || "https://lb.drpc.org/sonic/" + (process.env.NEXT_PUBLIC_DRPC_API_KEY || "your-drpc-key")] 
+    } 
+  },
   blockExplorers: { default: { name: "SonicScan", url: "https://sonicscan.org" } },
   contracts: {
     multicall3: {
@@ -22,7 +26,11 @@ export const SONIC_BLAZE_TESTNET = defineChain({
   id: 57054,
   name: "Sonic Blaze Testnet",
   nativeCurrency: { name: "Sonic", symbol: "S", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.blaze.soniclabs.com"] } },
+  rpcUrls: { 
+    default: { 
+      http: [process.env.NEXT_PUBLIC_DRPC_HTTP_URL || "https://lb.drpc.org/sonic/" + (process.env.NEXT_PUBLIC_DRPC_API_KEY || "your-drpc-key")] 
+    } 
+  },
   blockExplorers: { default: { name: "SonicScan", url: "https://testnet.sonicscan.org" } },
   contracts: {
     multicall3: {
@@ -67,7 +75,7 @@ export const ADDRESS_BOOK: Record<
     PAYMENT: "0x09575A8046048816317C41f9Cf37267E8486bb9b" as Address, // DEPLOYED V2: SonicMainnetPaymentV2 (Dual Credit System)
     CREDITS_ERC1155: "0x6B57563377181967C468002Cb11566c561f8DAc6" as Address, // DEPLOYED V2: SrvcfloCreditsNFTMainnet
     STAKING_CONTRACT: "0x103ce561d5137f137c9A86670812287B1B258499" as Address, // DEPLOYED V2: SrvcfloMultiCollectionStaking
-    CREDIT_TOKEN_ID: 1n,
+    CREDIT_TOKEN_ID: 1,
     explorerBase: "https://sonicscan.org",
   },
 }

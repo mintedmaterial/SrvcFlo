@@ -45,11 +45,61 @@
         },
         "playwright": {
           "type": "stdio",
-          "command": "mcd /c npx",
+          "command": "cmd /c npx",
           "args": [
             "@playwright/mcp@latest"
           ],
           "env": {}
-       }
+       },
+        "supabase": {
+          "type": "stdio",
+          "command": "python",
+          "args": [
+            "server/mcp_server.py"
+          ],
+          "cwd": "mcp-servers/supabase-mcp",
+          "env": {
+            "SUPABASE_URL": "${SUPABASE_URL:-}",
+            "SUPABASE_SERVICE_KEY": "${SUPABASE_SERVICE_KEY:-}",
+            "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
+          }
+        },
+        "paintswap-mcp": {
+          "type": "stdio",
+          "command": "python",
+          "args": [
+            "server.py"
+          ],
+          "cwd": "mcp-servers/paintswap-mcp",
+          "env": {
+            "PAINTSWAP_API_KEY": "${PAINTSWAP_API_KEY:-}",
+            "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
+          }
+        },
+        "finance-research-mcp": {
+          "type": "stdio",
+          "command": "python",
+          "args": [
+            "server.py"
+          ],
+          "cwd": "mcp-servers/finance-research-mcp",
+          "env": {
+            "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
+          }
+        },
+        "discord-monitoring-mcp": {
+          "type": "stdio",
+          "command": "python",
+          "args": [
+            "server.py"
+          ],
+          "cwd": "mcp-servers/discord-monitoring-mcp",
+          "env": {
+            "DISCORD_BOT_TOKEN": "${DISCORD_BOT_TOKEN:-}",
+            "TWITTER_CHANNEL_ID": "${TWITTER_CHANNEL_ID:-}",
+            "NFT_CHANNEL_ID": "${NFT_CHANNEL_ID:-}",
+            "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
+          }
+        }
     }
 }

@@ -79,66 +79,97 @@ export function PriceTicker({ network = 'mainnet', className = '', compact = fal
         console.log('Live Sonic price:', sonicPrice)
       }
       
-      // Calculate FLOAI amounts needed for image/video generation
-      const imageUSD = 1 // $1 for image
-      const videoUSD = 2 // $2 for video
+      // FLO tokenomics pricing ranges (from new-tokenomics.md)
+      const floPrice = 1.00 // FLO pegged to ~$1 USD
       
-      // Calculate required tokens based on live price
-      const imageTokens = imageUSD / sonicPrice
-      const videoTokens = videoUSD / sonicPrice
-      
-      // Create pricing data structure compatible with existing component
+      // Create pricing data structure with FLO token ranges
       const calculatedData = {
         network: network,
         networkDisplay: network === 'mainnet' ? 'Sonic Mainnet' : 'Sonic Testnet',
         pricing: {
           image: {
             service: 'Image Generation',
-            targetUSD: imageUSD,
-            targetFormatted: `$${imageUSD.toFixed(2)}`,
+            targetUSD: 'Variable by complexity',
+            targetFormatted: 'Based on prompt complexity',
             options: [
               {
-                token: 'S',
-                tokenName: 'Sonic',
-                amount: imageTokens,
-                amountFormatted: `${imageTokens.toFixed(4)} S`,
-                amountDecimals: (imageTokens * 1e18).toString(),
-                pricePerToken: sonicPrice,
-                summary: `${imageTokens.toFixed(4)} S ≈ $${imageUSD.toFixed(2)}`
+                token: 'FLO',
+                tokenName: 'FLO Simple',
+                amount: 0.25,
+                amountFormatted: '0.25 FLO',
+                amountDecimals: (0.25 * 1e18).toString(),
+                pricePerToken: floPrice,
+                summary: 'Simple prompts: 0.25 FLO (~$0.25)'
               },
               {
-                token: 'FLOAI',
-                tokenName: 'FLOAI',
-                amount: 50, // Fixed FLOAI cost per image
-                amountFormatted: '50 FLOAI',
-                amountDecimals: (50 * 1e18).toString(),
-                pricePerToken: imageUSD / 50, // $1 / 50 FLOAI = $0.02 per FLOAI
-                summary: '50 FLOAI ≈ $1.00'
+                token: 'FLO',
+                tokenName: 'FLO Standard',
+                amount: 0.50,
+                amountFormatted: '0.50 FLO',
+                amountDecimals: (0.50 * 1e18).toString(),
+                pricePerToken: floPrice,
+                summary: 'Standard prompts: 0.50 FLO (~$0.50)'
+              },
+              {
+                token: 'FLO',
+                tokenName: 'FLO Complex',
+                amount: 1.00,
+                amountFormatted: '1.00 FLO',
+                amountDecimals: (1.00 * 1e18).toString(),
+                pricePerToken: floPrice,
+                summary: 'Complex prompts: 1.00 FLO (~$1.00)'
+              },
+              {
+                token: 'FLO',
+                tokenName: 'FLO Premium',
+                amount: 2.00,
+                amountFormatted: '2.00 FLO',
+                amountDecimals: (2.00 * 1e18).toString(),
+                pricePerToken: floPrice,
+                summary: 'Premium prompts: 2.00 FLO (~$2.00)'
               }
             ]
           },
           video: {
             service: 'Video Generation',
-            targetUSD: videoUSD,
-            targetFormatted: `$${videoUSD.toFixed(2)}`,
+            targetUSD: 'Variable by complexity',
+            targetFormatted: 'Based on prompt complexity',
             options: [
               {
-                token: 'S',
-                tokenName: 'Sonic',
-                amount: videoTokens,
-                amountFormatted: `${videoTokens.toFixed(4)} S`,
-                amountDecimals: (videoTokens * 1e18).toString(),
-                pricePerToken: sonicPrice,
-                summary: `${videoTokens.toFixed(4)} S ≈ $${videoUSD.toFixed(2)}`
+                token: 'FLO',
+                tokenName: 'FLO Simple',
+                amount: 2.00,
+                amountFormatted: '2.00 FLO',
+                amountDecimals: (2.00 * 1e18).toString(),
+                pricePerToken: floPrice,
+                summary: 'Simple videos: 2.00 FLO (~$2.00)'
               },
               {
-                token: 'FLOAI',
-                tokenName: 'FLOAI',
-                amount: 100, // Fixed FLOAI cost per video
-                amountFormatted: '100 FLOAI',
-                amountDecimals: (100 * 1e18).toString(),
-                pricePerToken: videoUSD / 100, // $2 / 100 FLOAI = $0.02 per FLOAI
-                summary: '100 FLOAI ≈ $2.00'
+                token: 'FLO',
+                tokenName: 'FLO Standard',
+                amount: 4.00,
+                amountFormatted: '4.00 FLO',
+                amountDecimals: (4.00 * 1e18).toString(),
+                pricePerToken: floPrice,
+                summary: 'Standard videos: 4.00 FLO (~$4.00)'
+              },
+              {
+                token: 'FLO',
+                tokenName: 'FLO Complex',
+                amount: 8.00,
+                amountFormatted: '8.00 FLO',
+                amountDecimals: (8.00 * 1e18).toString(),
+                pricePerToken: floPrice,
+                summary: 'Complex videos: 8.00 FLO (~$8.00)'
+              },
+              {
+                token: 'FLO',
+                tokenName: 'FLO Premium',
+                amount: 15.00,
+                amountFormatted: '15.00 FLO',
+                amountDecimals: (15.00 * 1e18).toString(),
+                pricePerToken: floPrice,
+                summary: 'Premium videos: 15.00 FLO (~$15.00)'
               }
             ]
           }
@@ -281,10 +312,10 @@ export function PriceTicker({ network = 'mainnet', className = '', compact = fal
       <CardContent className="p-4">
         <div className="text-center mb-4">
           <h3 className="text-lg font-semibold text-white mb-1">
-            INFT Agent Generation Pricing
+            FLO Tokenomics Pricing
             {loading && <RefreshCw className="inline h-4 w-4 animate-spin ml-2" />}
           </h3>
-          <p className="text-sm text-gray-400">AI generation via personal INFT agents • Use FLOAI tokens or S tokens for generation</p>
+          <p className="text-sm text-gray-400">AI generation costs based on prompt complexity • FLO tokens pegged to ~$1 USD</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">

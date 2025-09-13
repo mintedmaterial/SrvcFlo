@@ -11,16 +11,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { BackgroundPaths } from "@/components/background-path"
+import BackgroundPaths from "@/components/background-path"
 import { BlogSection } from "@/components/BlogSection"
 import { ChatBot } from "@/components/chat-bot"
-import NavigationMenu from "@/components/navigation-menu"
+// Navigation now handled by layout
 import { PriceTicker } from "@/components/price-ticker"
 import { Bot, Calendar, Star, Zap, CheckCircle, ArrowRight, Play, TrendingUp, Shield, Users, Clock, ImageIcon, Video, Wallet, Globe, LogIn } from "lucide-react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useAccount } from "wagmi"
 
 export default function HomePage() {
+  // Entry state - start with background paths
+  const [showMainApp, setShowMainApp] = useState(false)
+  
   const [selectedPackage, setSelectedPackage] = useState("starter")
   const [waitlistCount, setWaitlistCount] = useState(247) // Will be fetched from API
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false)
@@ -261,106 +264,14 @@ export default function HomePage() {
   ]
 
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black">
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-black/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <video
-              src="/logogif.mp4"
-              alt="ServiceFlow AI"
-              width={40}
-              height={40}
-              className="rounded-lg"
-              autoPlay
-              loop
-              muted
-              playsInline
-            />
-            <span className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
-              ServiceFlow AI
-            </span>
-          </div>
-          <nav className="hidden md:flex items-center space-x-8">
-            <a
-              href="#features"
-              className="text-gray-300 hover:text-orange-400 transition-colors"
-            >
-              Learn
-            </a>
-            <a
-              href="/generate"
-              className="text-gray-300 hover:text-orange-400 transition-colors"
-            >
-              Generate
-            </a>
-            {isLoggedIn ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-300">
-                  Welcome, {user?.name || user?.email}
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleLogout}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-800"
-                >
-                  Logout
-                </Button>
-              </div>
-            ) : (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                  >
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Login
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Login to ServiceFlow AI</DialogTitle>
-                    <DialogDescription>
-                      Choose your preferred authentication method
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <Button
-                      onClick={() => window.location.href = '/generate'}
-                      className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                    >
-                      <LogIn className="h-4 w-4 mr-2" />
-                      Login with Email/Google
-                    </Button>
-                    <div className="w-full">
-                      <ConnectButton />
-                    </div>
-                    <div className="text-center pt-4 border-t">
-                      <p className="text-sm text-gray-500 mb-2">Need admin access?</p>
-                      <Button
-                        onClick={() => window.location.href = '/admin'}
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-gray-400 hover:text-gray-600"
-                      >
-                        Admin Login (Waitlist Approved Only)
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-          </nav>
-        </div>
-      </header>
+  // Show BackgroundPaths component first, then main app after user interaction
+  if (!showMainApp) {
+    return <BackgroundPaths title="ServiceFlow AI" onEnter={() => setShowMainApp(true)} />
+  }
 
-      {/* Navigation */}
-      <div className="container mx-auto px-4 py-4">
-        <NavigationMenu />
-      </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black pt-16">
+
 
       {/* Hero Section */}
       <section className="py-20 px-4">

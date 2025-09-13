@@ -34,31 +34,36 @@ module.exports = {
       accounts: [PRIVATE_KEY]
     },
     
-    // Sonic Mainnet
+    // Sonic Mainnet (dRPC)
     sonic: {
-      url: "https://rpc.soniclabs.com",
+      url: process.env.HTTP || "https://lb.drpc.org/sonic/" + (process.env.DRPC_API_KEY || "your-drpc-key"),
       chainId: 146,
       accounts: [PRIVATE_KEY],
       gasPrice: "auto",
       gas: "auto",
       timeout: 60000,
-      confirmations: 2
+      confirmations: 2,
+      httpHeaders: {
+        'Drpc-Key': process.env.DRPC_API_KEY
+      }
     },
     
-    // Sonic Testnet (Blaze)
+    // Sonic Testnet (Blaze) - dRPC
     sonicTestnet: {
-      url: "https://rpc.blaze.soniclabs.com", 
+      url: process.env.HTTP || "https://lb.drpc.org/sonic/" + (process.env.DRPC_API_KEY || "your-drpc-key"), 
       chainId: 57054,
       accounts: [PRIVATE_KEY],
       gasPrice: "auto",
       gas: "auto",
       timeout: 60000,
-      confirmations: 1
+      confirmations: 1,
+      httpHeaders: {
+        'Drpc-Key': process.env.DRPC_API_KEY
+      }
     },
     
-    // Alternative Sonic RPC
-    sonic : {
-      tenderly: true 
+    // Alternative Sonic RPC (Tenderly - for debugging only)
+    sonicTenderly: {
       url: "https://sonic.gateway.tenderly.co/pJrZzy8Ljkx62pj2GgBOK",
       chainId: 146,
       accounts: [PRIVATE_KEY],

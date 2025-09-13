@@ -19,12 +19,7 @@ import {
   Sparkles
 } from "lucide-react"
 
-// Authorized wallet addresses for admin access
-const AUTHORIZED_ADMINS = [
-  '0x742d35cc6569c2c0ba0000000000000000000000', // Replace with actual admin addresses
-  '0x8ba1f109551bd432803012645hdjddjjdj',
-  // Add more authorized wallet addresses here
-]
+import { isAuthorizedAdmin, isAuthorizedAdminSync } from '@/lib/auth-config'
 
 export default function AdminAccess() {
   const router = useRouter()
@@ -33,26 +28,46 @@ export default function AdminAccess() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isConnected && address) {
-      // Check if connected wallet is authorized
-      const authorized = AUTHORIZED_ADMINS.some(
-        adminAddress => adminAddress.toLowerCase() === address.toLowerCase()
-      )
-      setIsAuthorized(authorized)
-      
-      if (authorized) {
-        // Auto-redirect authorized users to dashboard
-        setTimeout(() => {
-          router.push('/admin/dashboard')
-        }, 2000)
+    const checkAuthorization = async () => {
+      if (isConnected && address) {
+        try {
+          // First check sync version for immediate feedback
+          const syncAuthorized = isAuthorizedAdminSync(address)
+          
+          if (syncAuthorized) {
+            setIsAuthorized(true)
+            setLoading(false)
+            // Auto-redirect authorized users to dashboard
+            setTimeout(() => {
+              router.push('/admin/dashboard')
+            }, 2000)
+            return
+          }
+
+          // Then check async version for NFT-based access
+          const asyncAuthorized = await isAuthorizedAdmin(address)
+          setIsAuthorized(asyncAuthorized)
+          
+          if (asyncAuthorized) {
+            // Auto-redirect authorized users to dashboard
+            setTimeout(() => {
+              router.push('/admin/dashboard')
+            }, 2000)
+          }
+        } catch (error) {
+          console.error('Authorization check failed:', error)
+          setIsAuthorized(false)
+        }
       }
+      setLoading(false)
     }
-    setLoading(false)
+
+    checkAuthorization()
   }, [address, isConnected, router])
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center pt-16">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-500 mx-auto mb-4"></div>
           <p className="text-green-400 text-lg">Verifying access...</p>
@@ -63,7 +78,7 @@ export default function AdminAccess() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-black relative overflow-hidden">
+      <div className="min-h-screen bg-black relative overflow-hidden pt-16">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
         </div>
@@ -133,7 +148,7 @@ export default function AdminAccess() {
 
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen bg-black relative overflow-hidden">
+      <div className="min-h-screen bg-black relative overflow-hidden pt-16">
         <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
@@ -156,6 +171,15 @@ export default function AdminAccess() {
                   <p className="text-red-400 text-xs font-mono text-center mt-1 break-all">
                     {address}
                   </p>
+                </div>
+
+                <div className="bg-gray-900/40 border border-gray-600/30 rounded-lg p-4">
+                  <h4 className="text-gray-300 text-sm font-semibold mb-2">Access Requirements:</h4>
+                  <ul className="text-gray-400 text-xs space-y-1">
+                    <li>• Hold any NFT from contract: <span className="text-blue-400 font-mono">0x45bC...f966</span></li>
+                    <li>• Or be an authorized wallet address</li>
+                    <li>• Team access available with specific Token IDs</li>
+                  </ul>
                 </div>
 
                 <div className="text-center">
@@ -192,7 +216,7 @@ export default function AdminAccess() {
                 Access Granted
               </CardTitle>
               <p className="text-green-400 text-sm mt-2">
-                Initializing iNFT agent dashboard...
+                Choose your access level
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -210,10 +234,30 @@ export default function AdminAccess() {
                   </p>
                 </div>
 
-                <div className="flex items-center justify-center text-green-400">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mr-3"></div>
-                  <span>Loading agent dashboard</span>
-                  <ArrowRight className="h-4 w-4 ml-2 animate-pulse" />
+                <div className="space-y-3">
+                  <Button 
+                    className="w-full bg-green-600 hover:bg-green-700 text-black font-semibold"
+                    onClick={() => router.push('/admin/dashboard')}
+                  >
+                    <Bot className="h-5 w-5 mr-2" />
+                    User Agent Dashboard
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    className="w-full border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+                    onClick={() => {
+                      // Open agent UI in new tab for development, or redirect for production
+                      if (process.env.NODE_ENV === 'development') {
+                        window.open('http://localhost:3000', '_blank')
+                      } else {
+                        window.open('https://app.srvcflo.com', '_blank')
+                      }
+                    }}
+                  >
+                    <Users className="h-5 w-5 mr-2" />
+                    Team Backend Agents
+                  </Button>
                 </div>
               </div>
             </CardContent>

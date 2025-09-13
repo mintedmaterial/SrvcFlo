@@ -141,7 +141,7 @@ function getClientIP(request) {
          'unknown';
 }
 
-// Price calculation utilities using OpenOcean API
+// Price calculation utilities using DexScreener API
 async function getTokenPrice(env, network, token, amount = 1) {
   validateTokenAndNetwork(network, token);
   const { numAmount } = validatePriceParams(amount);
@@ -161,60 +161,96 @@ async function getTokenPrice(env, network, token, amount = 1) {
     }
   }
 
-  // Fetch fresh price from OpenOcean
+  // Fetch fresh price from DexScreener API
   try {
     const tokenAddress = tokens[token];
     if (!tokenAddress) throw new Error(`Unsupported token: ${token}`);
-    const decimals = token === 'USDC' ? 6 : 18;
-    const amountDecimals = (numAmount * Math.pow(10, decimals)).toString();
-    const quoteUrl = `${OPENOCEAN_PRO_BASE_URL}/v4/${chainId}/quote` +
-      `?inTokenAddress=${tokenAddress}` +
-      `&outTokenAddress=${tokens.USDC}` +
-      `&amountDecimals=${amountDecimals}` +
-      `&gasPriceDecimals=1000000000` +
-      `&slippage=1`;
-    const response = await fetch(quoteUrl, {
+    
+    // DexScreener token-pairs API URL for Sonic network
+    const chainName = 'sonic'; // Sonic chain identifier
+    const dexscreenerUrl = `https://api.dexscreener.com/token-pairs/v1/${chainName}/${tokenAddress}`;
+    const response = await fetch(dexscreenerUrl, {
       headers: {
-        'apikey': env.OPENOCEAN_API_KEY,
-        'Content-Type': 'application/json'
+        'User-Agent': 'ServiceFlow-AI/1.0',
+        'Accept': '*/*'
       }
     });
-    if (!response.ok) throw new Error(`OpenOcean API error: ${response.status}`);
+    
+    if (!response.ok) throw new Error(`DexScreener API error: ${response.status}`);
     const data = await response.json();
-    if (data.code !== 200) throw new Error(`OpenOcean API error: ${data.message || 'Unknown error'}`);
-    const outAmount = parseFloat(data.data.outAmount) / Math.pow(10, 6);
-    const inAmount = parseFloat(data.data.inAmount) / Math.pow(10, decimals);
-    const pricePerToken = outAmount / inAmount;
+    
+    if (!data.pairs || data.pairs.length === 0) throw new Error('No trading pairs found');
+    
+    // Find the best pair (highest liquidity and volume)
+    const bestPair = data.pairs
+      .filter(pair => pair.priceUsd && parseFloat(pair.priceUsd) > 0)
+      .sort((a, b) => {
+        const liquidityA = parseFloat(a.liquidity?.usd || '0');
+        const liquidityB = parseFloat(b.liquidity?.usd || '0');
+        const volumeA = parseFloat(a.volume?.h24 || '0');
+        const volumeB = parseFloat(b.volume?.h24 || '0');
+        
+        // Prioritize by liquidity first, then volume
+        if (liquidityA !== liquidityB) return liquidityB - liquidityA;
+        return volumeB - volumeA;
+      })[0];
+    
+    if (!bestPair || !bestPair.priceUsd) throw new Error('No valid price data found');
+    
+    const pricePerToken = parseFloat(bestPair.priceUsd);
+    const totalUSD = pricePerToken * numAmount;
+    
     const result = {
       network,
       token,
       amount: parseFloat(amount),
       priceUSD: pricePerToken,
-      totalUSD: outAmount,
+      totalUSD: totalUSD,
       timestamp: Date.now(),
-      source: 'openocean'
+      source: 'dexscreener',
+      pair: bestPair.pairAddress,
+      liquidity: bestPair.liquidity?.usd || 0,
+      volume24h: bestPair.volume?.h24 || 0,
+      dex: bestPair.dexId || 'unknown'
     };
+    
     if (env.PRICE_CACHE) {
       await env.PRICE_CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 180 });
     }
     return result;
   } catch (error) {
-    console.error('Price fetch error:', error);
-    // Only fallback if OpenOcean is truly unreachable
-    if (env.PRICE_CACHE) {
-      const fallback = {
-        network,
-        token,
-        amount: parseFloat(amount),
-        priceUSD: 0.305,
-        totalUSD: 0.305 * parseFloat(amount),
-        timestamp: Date.now(),
-        source: 'fallback'
-      };
-      await env.PRICE_CACHE.put(cacheKey, JSON.stringify(fallback), { expirationTtl: 180 });
-      return fallback;
+    console.error('DexScreener price fetch error:', error);
+    // Try backup with CoinGecko or other API if available
+    try {
+      // Backup: Try CoinGecko API for wS token
+      if (token === 'wS') {
+        const coinGeckoUrl = 'https://api.coingecko.com/api/v3/simple/price?ids=wrapped-sonic&vs_currencies=usd';
+        const cgResponse = await fetch(coinGeckoUrl);
+        if (cgResponse.ok) {
+          const cgData = await cgResponse.json();
+          const price = cgData['wrapped-sonic']?.usd;
+          if (price) {
+            const result = {
+              network,
+              token,
+              amount: parseFloat(amount),
+              priceUSD: price,
+              totalUSD: price * numAmount,
+              timestamp: Date.now(),
+              source: 'coingecko'
+            };
+            if (env.PRICE_CACHE) {
+              await env.PRICE_CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 300 });
+            }
+            return result;
+          }
+        }
+      }
+    } catch (backupError) {
+      console.error('Backup price API also failed:', backupError);
     }
-    throw error;
+    
+    throw new Error(`Unable to fetch price for ${token} on ${network}: ${error.message}`);
   }
 }
 export async function scheduled(event, env, ctx) {
@@ -835,10 +871,80 @@ export default {
       switch (true) {
         // Public routes (no authentication required)
         case path === '/' && method === 'GET':
-          return handleHomePage(request, env);
+          // Serve static assets for home page - let it fall through to default case
+          if (env.ASSETS) {
+            try {
+              const assetRequest = new Request(new URL('/index.html', url.origin).toString(), request);
+              const response = await env.ASSETS.fetch(assetRequest);
+              if (response.ok) {
+                return addCORSHeaders(response, corsHeaders);
+              }
+            } catch (error) {
+              console.error('Error serving home page:', error);
+            }
+          }
+          // Fallback to JSON response if ASSETS not available
+          return addCORSHeaders(await handleHomePage(request, env), corsHeaders);
 
         case path === '/generate' && method === 'GET':
+          // For SPA routing, serve index.html for /generate route
+          if (env.ASSETS) {
+            try {
+              const assetRequest = new Request(new URL('/index.html', url.origin).toString(), request);
+              const response = await env.ASSETS.fetch(assetRequest);
+              if (response.ok) {
+                return addCORSHeaders(response, corsHeaders);
+              }
+            } catch (error) {
+              console.error('Error serving generate page:', error);
+            }
+          }
+          // Fallback to JSON response if ASSETS not available
           return addCORSHeaders(await handleGeneratePage(request, env), corsHeaders);
+        // Admin routes - serve SPA for all admin paths
+        case (path === '/admin' || path.startsWith('/admin/')) && method === 'GET':
+          // For SPA routing, serve index.html for all admin routes
+          if (env.ASSETS) {
+            try {
+              const assetRequest = new Request(new URL('/index.html', url.origin).toString(), request);
+              const response = await env.ASSETS.fetch(assetRequest);
+              if (response.ok) {
+                return addCORSHeaders(response, corsHeaders);
+              }
+            } catch (error) {
+              console.error('Error serving admin page:', error);
+            }
+          }
+          // Fallback to JSON response if ASSETS not available  
+          return addCORSHeaders(new Response(JSON.stringify({
+            error: 'Admin page not available',
+            message: 'Static assets not configured'
+          }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          }), corsHeaders);
+        // Dashboard routes - serve SPA for all dashboard paths
+        case (path === '/dashboard' || path.startsWith('/dashboard/')) && method === 'GET':
+          // For SPA routing, serve index.html for all dashboard routes
+          if (env.ASSETS) {
+            try {
+              const assetRequest = new Request(new URL('/index.html', url.origin).toString(), request);
+              const response = await env.ASSETS.fetch(assetRequest);
+              if (response.ok) {
+                return addCORSHeaders(response, corsHeaders);
+              }
+            } catch (error) {
+              console.error('Error serving dashboard page:', error);
+            }
+          }
+          // Fallback to JSON response if ASSETS not available
+          return addCORSHeaders(new Response(JSON.stringify({
+            error: 'Dashboard page not available', 
+            message: 'Static assets not configured'
+          }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          }), corsHeaders);
 
         case path === '/api/waitlist' && method === 'POST':
           return handleWaitlistSignup(request, env);
@@ -1005,7 +1111,57 @@ export default {
           
           return handleApprovalAction(request, env, user);
 
+        // Sonic Price API
+        case path === '/api/price/sonic-price' && method === 'GET':
+          return handleSonicPrice(request, env);
+
+        // User Stats API  
+        case path === '/api/user/stats' && method === 'POST':
+          return handleUserStats(request, env);
+
+        // User Generations API
+        case path === '/api/user/generations' && method === 'POST':
+          return handleUserGenerations(request, env);
+
+        // Cloudflare Free Generation API
+        case path === '/api/generate/cloudflare-free' && method === 'POST':
+          return handleCloudFlareFreeGeneration(request, env);
+
+        // Credit-based Generation V2 API
+        case path === '/api/generate/credit-based-v2' && method === 'POST':
+          return handleCreditBasedGenerationV2(request, env);
+
         default:
+          // Serve static assets for all non-API routes
+          if (env.ASSETS) {
+            try {
+              // Try to get the asset from the static directory
+              let assetRequest = new Request(url.toString(), request);
+              let response = await env.ASSETS.fetch(assetRequest);
+              
+              // If the asset is not found and it's not an API route, serve index.html for SPA routing
+              if (response.status === 404 && !path.startsWith('/api/')) {
+                assetRequest = new Request(new URL('/', url.origin).toString(), request);
+                response = await env.ASSETS.fetch(assetRequest);
+              }
+              
+              // Add CORS headers to static assets
+              if (response.ok) {
+                const newResponse = new Response(response.body, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: {
+                    ...Object.fromEntries(response.headers.entries()),
+                    ...corsHeaders
+                  }
+                });
+                return newResponse;
+              }
+            } catch (error) {
+              console.error('Asset serving error:', error);
+            }
+          }
+          
           return new Response('Not Found', { 
             status: 404,
             headers: corsHeaders
@@ -3590,15 +3746,7 @@ async function handlePriceQuote(request, env) {
     const token = url.searchParams.get('token') || 'wS';
     const amount = url.searchParams.get('amount') || '1';
 
-    if (!env.OPENOCEAN_API_KEY) {
-      return new Response(JSON.stringify({
-        error: 'Service unavailable',
-        message: 'Pricing service is temporarily unavailable'
-      }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    // DexScreener API doesn't require API key, proceed with pricing
 
     const result = await getTokenPrice(env, network, token, amount);
     
@@ -3656,15 +3804,7 @@ async function handlePriceCalculate(request, env) {
     const token = url.searchParams.get('token') || 'wS';
     const targetUSD = url.searchParams.get('targetUSD') || '1';
 
-    if (!env.OPENOCEAN_API_KEY) {
-      return new Response(JSON.stringify({
-        error: 'Service unavailable',
-        message: 'Pricing service is temporarily unavailable'
-      }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    // DexScreener API doesn't require API key, proceed with pricing
 
     const result = await calculateTokensForUSD(env, network, token, targetUSD);
     
@@ -3719,62 +3859,105 @@ async function handleSwapAmount(request, env) {
 
     const url = new URL(request.url);
     const network = url.searchParams.get('network') || 'mainnet';
-    const imagePrice = url.searchParams.get('imagePrice') || '1';
-    const videoPrice = url.searchParams.get('videoPrice') || '2';
-
+    const promptType = url.searchParams.get('type') || 'image'; // image, video
+    const complexity = url.searchParams.get('complexity') || 'standard'; // simple, standard, complex
+    
     // Validate network
     validateTokenAndNetwork(network, 'wS'); // Just validate network part
 
-    if (!env.OPENOCEAN_API_KEY) {
-      return new Response(JSON.stringify({
-        error: 'Service unavailable',
-        message: 'Pricing service is temporarily unavailable'
-      }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Calculate token amounts for both S and wS for both image and video pricing
-    const [imageWS, imageS, videoWS, videoS] = await Promise.all([
-      calculateTokensForUSD(env, network, 'wS', imagePrice),
-      calculateTokensForUSD(env, network, 'S', imagePrice),
-      calculateTokensForUSD(env, network, 'wS', videoPrice),
-      calculateTokensForUSD(env, network, 'S', videoPrice)
-    ]);
-
-    const result = {
-      network,
-      pricing: {
-        image: {
-          targetUSD: imagePrice,
-          wS: {
-            amount: imageWS.tokensNeeded,
-            amountDecimals: imageWS.tokensNeededDecimals,
-            pricePerToken: imageWS.pricePerToken
-          },
-          S: {
-            amount: imageS.tokensNeeded,
-            amountDecimals: imageS.tokensNeededDecimals,
-            pricePerToken: imageS.pricePerToken
-          }
-        },
-        video: {
-          targetUSD: videoPrice,
-          wS: {
-            amount: videoWS.tokensNeeded,
-            amountDecimals: videoWS.tokensNeededDecimals,
-            pricePerToken: videoWS.pricePerToken
-          },
-          S: {
-            amount: videoS.tokensNeeded,
-            amountDecimals: videoS.tokensNeededDecimals,
-            pricePerToken: videoS.pricePerToken
-          }
-        }
+    // FLO token requirements per prompt type (FLO pegged to ~$1 USD)
+    const floPrice = 1.00; // FLO target price $1.00
+    
+    // Base FLO costs for different generation types
+    const floRequirements = {
+      image: {
+        simple: 0.25,      // Simple image generation: 0.25 FLO
+        standard: 0.50,    // Standard image generation: 0.50 FLO  
+        complex: 1.00,     // Complex image generation: 1.00 FLO
+        premium: 2.00      // Premium image generation: 2.00 FLO
       },
+      video: {
+        simple: 2.00,      // Simple video generation: 2.00 FLO
+        standard: 4.00,    // Standard video generation: 4.00 FLO
+        complex: 8.00,     // Complex video generation: 8.00 FLO
+        premium: 15.00     // Premium video generation: 15.00 FLO
+      },
+      // AI workflow steps (from tokenomics)
+      workflow: {
+        step: 0.01         // Each AI workflow step: 0.01 FLO
+      }
+    };
+    
+    let result = {
+      network,
+      promptType,
+      complexity,
+      tokenomics: 'FLO-based',
+      floTokenPrice: floPrice,
       timestamp: Date.now()
     };
+
+    if (promptType === 'image') {
+      const requiredFLO = floRequirements.image[complexity] || floRequirements.image.standard;
+      result.pricing = {
+        type: 'Image Generation',
+        complexity,
+        requiredFLO,
+        requiredUSD: requiredFLO * floPrice,
+        description: `${complexity} image generation requires ${requiredFLO} FLO tokens (~$${(requiredFLO * floPrice).toFixed(2)} USD)`
+      };
+    } else if (promptType === 'video') {
+      const requiredFLO = floRequirements.video[complexity] || floRequirements.video.standard;
+      result.pricing = {
+        type: 'Video Generation',
+        complexity,
+        requiredFLO,
+        requiredUSD: requiredFLO * floPrice,
+        description: `${complexity} video generation requires ${requiredFLO} FLO tokens (~$${(requiredFLO * floPrice).toFixed(2)} USD)`
+      };
+    } else if (promptType === 'workflow') {
+      const steps = parseInt(url.searchParams.get('steps')) || 1;
+      const requiredFLO = floRequirements.workflow.step * steps;
+      result.pricing = {
+        type: 'AI Workflow Execution',
+        steps,
+        requiredFLO,
+        requiredUSD: requiredFLO * floPrice,
+        description: `${steps} workflow steps require ${requiredFLO} FLO tokens (~$${(requiredFLO * floPrice).toFixed(2)} USD)`
+      };
+    }
+
+    // Add all available options for reference
+    result.availableOptions = {
+      imageGeneration: floRequirements.image,
+      videoGeneration: floRequirements.video,
+      workflowExecution: floRequirements.workflow
+    };
+
+    // Add conversion info for Sonic tokens if requested
+    const includeTokenConversion = url.searchParams.get('includeTokens') === 'true';
+    if (includeTokenConversion) {
+      try {
+        // Get current FLO price in terms of wS and S tokens
+        const floToWS = await getTokenPrice(env, network, 'wS', 1);
+        const floToS = await getTokenPrice(env, network, 'S', 1);
+        
+        result.tokenConversion = {
+          floToSonicTokens: {
+            wS: {
+              pricePerFLO: floToWS.priceUSD ? (1 / floToWS.priceUSD) : 'N/A',
+              source: floToWS.source
+            },
+            S: {
+              pricePerFLO: floToS.priceUSD ? (1 / floToS.priceUSD) : 'N/A', 
+              source: floToS.source
+            }
+          }
+        };
+      } catch (error) {
+        result.tokenConversion = { error: 'Unable to fetch Sonic token prices' };
+      }
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' }
@@ -4061,6 +4244,335 @@ function analyzeBankingIntent(assistantResponse, userMessage) {
     confidence: 0.8,
     suggestedActions: suggestedActions
   };
+}
+
+// Missing API Handler Functions
+
+// Sonic Price API Handler
+async function handleSonicPrice(request, env) {
+  try {
+    // Cache configuration
+    const CACHE_TTL = 30000; // 30 seconds
+    const cacheKey = 'sonic-price-cache';
+    
+    // Try to get from KV cache first
+    let cachedPrice = null;
+    if (env.SERVICEFLOW_KV) {
+      try {
+        const cached = await env.SERVICEFLOW_KV.get(cacheKey);
+        if (cached) {
+          const data = JSON.parse(cached);
+          if ((Date.now() - data.timestamp) < CACHE_TTL) {
+            return addCORSHeaders(new Response(JSON.stringify({
+              symbol: 'S',
+              name: 'Sonic',
+              price: data.price,
+              source: 'cache',
+              timestamp: data.timestamp,
+              display: {
+                priceFormatted: `$${data.price.toFixed(6)}`,
+                network: 'Sonic Mainnet'
+              }
+            }), { headers: { 'Content-Type': 'application/json' } }), corsHeaders);
+          }
+        }
+      } catch (cacheError) {
+        console.warn('Cache read error:', cacheError);
+      }
+    }
+
+    // Fetch from DexScreener
+    const DEXSCREENER_BASE_URL = 'https://api.dexscreener.com/latest/dex';
+    const SONIC_CHAIN_ID = 'sonic';
+    const SONIC_WS_PAIR = '0xb1bc4b830fcba2184b92e15b9133c41160518038';
+
+    try {
+      const response = await fetch(`${DEXSCREENER_BASE_URL}/pairs/${SONIC_CHAIN_ID}/${SONIC_WS_PAIR}`, {
+        headers: { 'User-Agent': 'ServiceFlow-AI/1.0' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`DexScreener API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const pair = data.pairs?.[0];
+
+      if (!pair || !pair.priceUsd) {
+        throw new Error('Invalid pair data from DexScreener');
+      }
+
+      const price = parseFloat(pair.priceUsd);
+      
+      // Update cache
+      if (env.SERVICEFLOW_KV) {
+        try {
+          await env.SERVICEFLOW_KV.put(cacheKey, JSON.stringify({
+            price,
+            timestamp: Date.now()
+          }), { expirationTtl: 300 }); // 5 minute expiration
+        } catch (cacheError) {
+          console.warn('Cache write error:', cacheError);
+        }
+      }
+
+      return addCORSHeaders(new Response(JSON.stringify({
+        symbol: 'S',
+        name: 'Sonic',
+        price,
+        priceChange24h: parseFloat(pair.priceChange?.h24) || 0,
+        volume24h: parseFloat(pair.volume?.h24) || 0,
+        liquidity: parseFloat(pair.liquidity?.usd) || 0,
+        pairAddress: SONIC_WS_PAIR,
+        dexId: pair.dexId,
+        source: 'dexscreener',
+        timestamp: Date.now(),
+        display: {
+          priceFormatted: `$${price.toFixed(6)}`,
+          change24hFormatted: `${(parseFloat(pair.priceChange?.h24) || 0).toFixed(2)}%`,
+          volume24hFormatted: `$${(parseFloat(pair.volume?.h24) || 0).toLocaleString()}`,
+          liquidityFormatted: `$${(parseFloat(pair.liquidity?.usd) || 0).toLocaleString()}`,
+          network: 'Sonic Mainnet'
+        }
+      }), { headers: { 'Content-Type': 'application/json' } }), corsHeaders);
+
+    } catch (dexError) {
+      console.error('DexScreener error:', dexError);
+      
+      // Fallback price
+      const fallbackPrice = 0.305;
+      
+      return addCORSHeaders(new Response(JSON.stringify({
+        symbol: 'S',
+        name: 'Sonic',
+        price: fallbackPrice,
+        source: 'fallback',
+        timestamp: Date.now(),
+        error: 'External APIs unavailable',
+        display: {
+          priceFormatted: `$${fallbackPrice.toFixed(6)}`,
+          network: 'Sonic Mainnet'
+        }
+      }), { headers: { 'Content-Type': 'application/json' } }), corsHeaders);
+    }
+
+  } catch (error) {
+    console.error('Sonic price API error:', error);
+    
+    return addCORSHeaders(new Response(JSON.stringify({
+      error: 'Failed to fetch Sonic price',
+      message: error.message,
+      price: 0.305,
+      source: 'emergency_fallback',
+      timestamp: Date.now()
+    }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+  }
+}
+
+// User Stats API Handler
+async function handleUserStats(request, env) {
+  try {
+    const body = await request.json();
+    const { userAddress } = body;
+
+    if (!userAddress) {
+      return addCORSHeaders(new Response(JSON.stringify({
+        success: false,
+        error: 'User address required'
+      }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      }), corsHeaders);
+    }
+
+    // Mock user stats for now
+    const mockStats = {
+      success: true,
+      stats: {
+        totalGenerationsCreated: 5,
+        totalUpvotesReceived: 12,
+        leaderboardPoints: 150,
+        weeklyRank: 42,
+        globalRank: 1337,
+        canVote: true,
+        freeGenerationsUsedToday: 2,
+        freeGenerationsRemaining: 1,
+        creditsBalance: 5
+      }
+    };
+
+    return addCORSHeaders(new Response(JSON.stringify(mockStats), {
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+
+  } catch (error) {
+    console.error('User stats API error:', error);
+    return addCORSHeaders(new Response(JSON.stringify({
+      success: false,
+      error: error.message || 'Internal server error'
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+  }
+}
+
+// User Generations API Handler  
+async function handleUserGenerations(request, env) {
+  try {
+    const body = await request.json();
+    const { userAddress } = body;
+
+    if (!userAddress) {
+      return addCORSHeaders(new Response(JSON.stringify({
+        success: false,
+        error: 'User address required'
+      }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      }), corsHeaders);
+    }
+
+    // Mock generation history
+    const mockGenerations = {
+      success: true,
+      generations: [
+        {
+          id: 'gen_1',
+          prompt: 'A futuristic city with flying cars',
+          imageUrl: 'https://via.placeholder.com/512x512?text=Future+City',
+          model: 'flux-1-schnell',
+          creditsUsed: 1,
+          createdAt: new Date(Date.now() - 3600000).toISOString(),
+          upvotes: 3,
+          status: 'completed'
+        },
+        {
+          id: 'gen_2', 
+          prompt: 'Abstract colorful geometric patterns',
+          imageUrl: 'https://via.placeholder.com/512x512?text=Abstract+Art',
+          model: 'flux-1-schnell',
+          creditsUsed: 1,
+          createdAt: new Date(Date.now() - 7200000).toISOString(),
+          upvotes: 7,
+          status: 'completed'
+        }
+      ],
+      total: 2
+    };
+
+    return addCORSHeaders(new Response(JSON.stringify(mockGenerations), {
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+
+  } catch (error) {
+    console.error('User generations API error:', error);
+    return addCORSHeaders(new Response(JSON.stringify({
+      success: false,
+      error: error.message || 'Internal server error'
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+  }
+}
+
+// Cloudflare Free Generation API Handler
+async function handleCloudFlareFreeGeneration(request, env) {
+  try {
+    const body = await request.json();
+    const { prompt, userAddress, model = 'cloudflare-free' } = body;
+
+    if (!prompt) {
+      return addCORSHeaders(new Response(JSON.stringify({
+        success: false,
+        error: 'Prompt is required'
+      }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      }), corsHeaders);
+    }
+
+    // For now return a demo image since we need proper Cloudflare AI setup
+    return addCORSHeaders(new Response(JSON.stringify({
+      success: true,
+      imageUrl: `https://via.placeholder.com/1024x1024/1f2937/f59e0b?text=Demo+Image`,
+      model: 'demo-fallback',
+      creditsUsed: 0,
+      generatedAt: new Date().toISOString(),
+      isDemo: true,
+      prompt: prompt
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+
+  } catch (error) {
+    console.error('Free generation error:', error);
+    
+    return addCORSHeaders(new Response(JSON.stringify({
+      success: false,
+      error: error.message || 'Free generation failed'
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+  }
+}
+
+// Credit-based Generation V2 API Handler
+async function handleCreditBasedGenerationV2(request, env) {
+  try {
+    const body = await request.json();
+    const { prompt, userAddress, model = 'flux-1-schnell', credits = 1 } = body;
+
+    if (!prompt) {
+      return addCORSHeaders(new Response(JSON.stringify({
+        success: false,
+        error: 'Prompt is required'
+      }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      }), corsHeaders);
+    }
+
+    if (!userAddress) {
+      return addCORSHeaders(new Response(JSON.stringify({
+        success: false,
+        error: 'User address is required'
+      }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      }), corsHeaders);
+    }
+
+    // For now return a demo image
+    return addCORSHeaders(new Response(JSON.stringify({
+      success: true,
+      imageUrl: `https://via.placeholder.com/1024x1024/059669/ffffff?text=Credit+Generated`,
+      model: model,
+      creditsUsed: credits,
+      generatedAt: new Date().toISOString(),
+      isDemo: true,
+      prompt: prompt,
+      userAddress: userAddress
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+
+  } catch (error) {
+    console.error('Credit-based generation error:', error);
+    
+    return addCORSHeaders(new Response(JSON.stringify({
+      success: false,
+      error: error.message || 'Credit-based generation failed'
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    }), corsHeaders);
+  }
 }
 
 // File completed properly

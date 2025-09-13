@@ -66,10 +66,13 @@ Unlike centralized platforms, we provide both team-managed agents on MCP/Cloudfl
 ### Core Agent Features
 
 - **Agent Launchpad:** Visual workflow builder for creating specialized AI agents without coding
+- **FastMCP Architecture:** Modern Python framework providing 90% code reduction and native OpenAI integration
+- **Modular MCP Servers:** Specialized servers for each service (Paintswap NFTs, Silo Finance DeFi, What Exchange trading) enabling focused expertise
+- **OpenAI Responses API Integration:** Direct GPT-4 connectivity for seamless AI-powered marketplace interactions
 - **Multi-Provider AI Integration:** Support for OpenAI, Groq, Gemini, and local models with automatic failover
 - **Real-Time Agent Chat:** Local chat interface for testing and refining agents before deployment
-- **Agent Templates:** Pre-built agents for common use cases (content creation, social media, customer service, NFT/DeFi trading)
-- **Advanced Trading Agents:** Strategy, backtesting, and automated execution agents with PaintSwap NFT marketplace and Silo Finance DeFi integration
+- **Agent Templates:** Pre-built agents for common use cases (content creation, social media, customer service)
+- **Advanced Trading Agents:** Comprehensive NFT marketplace automation with full Paintswap integration (auctions, offers, vaults, $wS support)
 
 ### Monetization Features
 
@@ -85,9 +88,25 @@ Unlike centralized platforms, we provide both team-managed agents on MCP/Cloudfl
 - **NFT Staking Rewards:** Bandit Kidz NFT holders earn 20% of platform revenue automatically (updated tokenomics)
 - **Cross-Chain Bridge:** Future support for multi-chain deployments and asset transfers
 
+### Technical Architecture Features
+
+- **FastMCP Framework:** Modern Python MCP implementation with structured outputs and automatic schema generation
+- **Modular Server Design:** Dedicated MCP servers for specialized functionality (Paintswap, Silo Finance, What Exchange, Supabase Database)
+- **Supabase MCP Integration:** Enhanced database operations with natural language processing, schema discovery, and intelligent query generation for user data, NFT collections, trading pairs, DeFi pools, Discord channel analytics, and social engagement metrics
+- **Discord MCP Architecture:** Dedicated MCP server for Discord channel monitoring, message analysis, and automated community engagement with embeddings-based content analysis
+- **OpenAI Native Integration:** Direct GPT model access via Responses API for enhanced AI capabilities including DALL-E image generation for Discord channels
+- **Real-time Data Feeds:** WebSocket support for live marketplace data, trading signals, Discord channel monitoring, and social media feed aggregation
+- **dRPC Cloud Node Integration:** Professional blockchain infrastructure with enhanced reliability, monitoring, and performance for all Sonic blockchain operations
+- **NFT-Based Access Control:** Team member authentication via Bandit Kidz NFT ownership with specific token ID verification (admin tokens: 143, 1-5)
+- **Dual Authentication Architecture:** Agno playground handles builder authentication (Google/GitHub OAuth), Next.js UI handles team authentication via NFT verification
+- **Enterprise Authentication:** JWT-based security with rate limiting and usage tracking
+
 ### Social & Community Features
 
+- **Discord Community Hub:** Professional Discord server with 10 specialized channels for team coordination, user interaction, DAO governance, NFT monitoring, and social feeds with intelligent bot integration
+- **Channel-Specific AI Routing:** Advanced Discord agent with channel-aware responses and DALL-E image generation for appropriate channels (content publishing, user interaction, generation voting)
+- **Real-Time Data Feeds:** Live NFT transaction monitoring via PaintSwap integration and Twitter/X social feeds from Sonic Labs and community leaders
 - **Voting System:** Community voting on generated content with $SERV token rewards for participants
 - **Leaderboard System:** Monthly competitions with 15% revenue pool distribution to top performers
-- **Social Media Sync:** Automated posting to X, Discord, Telegram, and Facebook with rate limiting
+- **Multi-Platform Social Automation:** Coordinated posting across X, Discord, Telegram, and Facebook with intelligent rate limiting and content optimization
 - **Agent Marketplace:** User-created agents available for purchase/licensing with revenue sharing

@@ -9,11 +9,21 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  // Only use static export for production builds
-  ...(process.env.NODE_ENV === 'production' && process.env.STATIC_EXPORT === 'true' ? {
-    output: 'export',
-    distDir: 'out'
-  } : {})
+  // Always use static export for Cloudflare Workers deployment
+  output: 'export',
+  distDir: 'out',
+  trailingSlash: true,
+  // Skip trailing slash redirect
+  skipTrailingSlashRedirect: true,
+  // Custom webpack config to exclude API routes
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Exclude API routes from server-side build
+      config.externals = config.externals || [];
+      config.externals.push(/^app\/api/);
+    }
+    return config;
+  },
 }
 
 export default nextConfig

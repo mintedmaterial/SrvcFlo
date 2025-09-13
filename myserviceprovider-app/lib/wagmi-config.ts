@@ -13,10 +13,10 @@ export const sonicTestnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: ['https://rpc.blaze.soniclabs.com'],
+      http: [process.env.NEXT_PUBLIC_DRPC_HTTP_URL || 'https://lb.drpc.org/sonic/' + (process.env.NEXT_PUBLIC_DRPC_API_KEY || 'your-drpc-key')],
     },
     public: {
-      http: ['https://rpc.blaze.soniclabs.com'],
+      http: [process.env.NEXT_PUBLIC_DRPC_HTTP_URL || 'https://lb.drpc.org/sonic/' + (process.env.NEXT_PUBLIC_DRPC_API_KEY || 'your-drpc-key')],
     },
   },
   blockExplorers: {
@@ -40,10 +40,10 @@ export const sonicMainnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: ['https://rpc.soniclabs.com'],
+      http: [process.env.NEXT_PUBLIC_DRPC_HTTP_URL || 'https://lb.drpc.org/sonic/' + (process.env.NEXT_PUBLIC_DRPC_API_KEY || 'your-drpc-key')],
     },
     public: {
-      http: ['https://rpc.soniclabs.com'],
+      http: [process.env.NEXT_PUBLIC_DRPC_HTTP_URL || 'https://lb.drpc.org/sonic/' + (process.env.NEXT_PUBLIC_DRPC_API_KEY || 'your-drpc-key')],
     },
   },
   blockExplorers: {
@@ -78,15 +78,25 @@ export const config = createConfig({
     }),
   ],
   transports: {
-    [sonicTestnet.id]: http('https://rpc.blaze.soniclabs.com', {
+    [sonicTestnet.id]: http(process.env.NEXT_PUBLIC_DRPC_HTTP_URL || 'https://lb.drpc.org/sonic/' + (process.env.NEXT_PUBLIC_DRPC_API_KEY || 'your-drpc-key'), {
       batch: true,
       timeout: 30000,
       retryCount: 3,
+      fetchOptions: {
+        headers: {
+          'Drpc-Key': process.env.NEXT_PUBLIC_DRPC_API_KEY || 'your-drpc-key'
+        }
+      }
     }),
-    [sonicMainnet.id]: http('https://rpc.soniclabs.com', {
+    [sonicMainnet.id]: http(process.env.NEXT_PUBLIC_DRPC_HTTP_URL || 'https://lb.drpc.org/sonic/' + (process.env.NEXT_PUBLIC_DRPC_API_KEY || 'your-drpc-key'), {
       batch: true,
       timeout: 30000,
       retryCount: 3,
+      fetchOptions: {
+        headers: {
+          'Drpc-Key': process.env.NEXT_PUBLIC_DRPC_API_KEY || 'your-drpc-key'
+        }
+      }
     }),
   },
   ssr: false, // Changed to false to fix client-side hydration issues

@@ -52,7 +52,7 @@ Once connected, you'll see:
 - **Thread Submission**: Yes (if wallet connected)
 
 #### Credit Payment
-- **Cost**: 1 credit per generation
+- **Cost**: Flo Token dynamic to USD = credit's per generation
 - **Quality**: Premium
 - **Availability**: Only if you have credits
 - **Thread Submission**: Yes

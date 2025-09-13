@@ -1,289 +1,180 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowUp, ArrowDown, Trophy, Clock, ImageIcon, Video, ExternalLink, Loader2 } from "lucide-react"
-import { useAccount } from "wagmi"
-import { useRouter } from "next/navigation"
-import NavigationMenu from "@/components/navigation-menu"
-import { ClientOnlyWrapper } from "@/components/client-only-wrapper"
+import { MessageSquare, Heart, Eye, User, Calendar } from "lucide-react"
 
-interface ThreadGeneration {
-  id: string
-  type: 'image' | 'video'
-  prompt: string
-  result: string[]
-  createdAt: string
-  walletAddress: string
-  paymentMethod: 'S' | 'USDC' | 'credits' | 'free'
-  transactionHash?: string
-  upvotes: number
-  downvotes: number
-  userVote?: 'up' | 'down' | null
-  leaderboardPoints: number
-}
-
-const LoadingFallback = () => (
-  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black text-white flex items-center justify-center">
-    <div className="text-center">
-      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-400" />
-      <p className="text-gray-400">Loading community thread...</p>
-    </div>
-  </div>
-);
-
-function ThreadPageContent() {
-  const [generations, setGenerations] = useState<ThreadGeneration[]>([])
-  const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'recent' | 'upvotes' | 'points'>('upvotes')
-  
-  const { address } = useAccount()
-  const router = useRouter()
-
-  useEffect(() => {
-    fetchThreadGenerations()
-  }, [sortBy])
-
-  const fetchThreadGenerations = async () => {
-    try {
-      setLoading(true)
-      // This would fetch from your API that reads contract events
-      const response = await fetch(`/api/thread/generations?sort=${sortBy}`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setGenerations(data.generations || [])
-      }
-    } catch (error) {
-      console.error('Error fetching thread generations:', error)
-    } finally {
-      setLoading(false)
-    }
+const mockThreads = [
+  {
+    id: 1,
+    prompt: "A futuristic cityscape with flying cars at sunset",
+    imageUrl: "https://via.placeholder.com/400x400?text=Future+City",
+    author: "0x1234...5678",
+    upvotes: 23,
+    views: 456,
+    createdAt: "2 hours ago",
+    model: "FLUX-1 Schnell"
+  },
+  {
+    id: 2,
+    prompt: "Abstract geometric patterns in neon colors",
+    imageUrl: "https://via.placeholder.com/400x400?text=Abstract+Art",
+    author: "0xabcd...efgh",
+    upvotes: 18,
+    views: 321,
+    createdAt: "4 hours ago",
+    model: "Stable Diffusion XL"
+  },
+  {
+    id: 3,
+    prompt: "Mystical forest with glowing mushrooms and fireflies",
+    imageUrl: "https://via.placeholder.com/400x400?text=Mystical+Forest",
+    author: "0x9876...4321",
+    upvotes: 42,
+    views: 789,
+    createdAt: "6 hours ago",
+    model: "DALL-E 3"
+  },
+  {
+    id: 4,
+    prompt: "Cyberpunk samurai warrior in neon-lit streets",
+    imageUrl: "https://via.placeholder.com/400x400?text=Cyber+Samurai",
+    author: "0xfedc...ba98",
+    upvotes: 67,
+    views: 1234,
+    createdAt: "8 hours ago",
+    model: "Midjourney"
   }
+]
 
-  const handleVote = async (generationId: string, voteType: 'up' | 'down') => {
-    if (!address) {
-      alert('Please connect your wallet to vote')
-      return
-    }
-
-    try {
-      const response = await fetch('/api/thread/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          generationId,
-          voteType,
-          voterAddress: address
-        })
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        // Update local state
-        setGenerations(prev => prev.map(gen => 
-          gen.id === generationId 
-            ? {
-                ...gen,
-                upvotes: data.newUpvotes,
-                downvotes: data.newDownvotes,
-                userVote: voteType,
-                leaderboardPoints: data.newPoints
-              }
-            : gen
-        ))
-      }
-    } catch (error) {
-      console.error('Voting failed:', error)
-    }
-  }
-
+export default function ThreadPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black text-white">
-      <div className="container mx-auto px-4 py-8">
-        <NavigationMenu />
-        
+    <div className="min-h-screen bg-black pt-20 pb-8">
+      <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-              Generation Thread
-            </h1>
-            <p className="text-gray-400 mt-2">Community creations • Vote • Compete • Earn rewards</p>
-          </div>
-          
-          <Button
-            onClick={() => router.push('/generate')}
-            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-          >
-            Create Generation
-          </Button>
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-4">
+            Community Gallery
+          </h1>
+          <p className="text-gray-400 max-w-2xl mx-auto">
+            Discover amazing AI-generated images created by our community. 
+            Vote for your favorites and explore the endless possibilities of AI creativity.
+          </p>
         </div>
 
-        {/* Sort Controls */}
-        <div className="flex gap-2 mb-6">
-          <Button
-            variant={sortBy === 'upvotes' ? 'default' : 'outline'}
-            onClick={() => setSortBy('upvotes')}
-            size="sm"
-          >
-            <Trophy className="h-4 w-4 mr-1" />
-            Top Voted
-          </Button>
-          <Button
-            variant={sortBy === 'points' ? 'default' : 'outline'}
-            onClick={() => setSortBy('points')}
-            size="sm"
-          >
-            Leaderboard Points
-          </Button>
-          <Button
-            variant={sortBy === 'recent' ? 'default' : 'outline'}
-            onClick={() => setSortBy('recent')}
-            size="sm"
-          >
-            <Clock className="h-4 w-4 mr-1" />
-            Recent
-          </Button>
+        {/* Stats Bar */}
+        <div className="flex justify-center mb-8">
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="flex items-center space-x-6 p-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-400">1,234</div>
+                <div className="text-xs text-gray-500">Total Images</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400">456</div>
+                <div className="text-xs text-gray-500">Artists</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">12.3K</div>
+                <div className="text-xs text-gray-500">Total Votes</div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Thread Content */}
-        <div className="space-y-6">
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="text-gray-400">Loading generations...</div>
-            </div>
-          ) : generations.length === 0 ? (
-            <Card className="bg-gray-800/50 border-gray-700">
-              <CardContent className="text-center py-12">
-                <div className="text-gray-400 mb-4">No generations in thread yet</div>
-                <Button
-                  onClick={() => router.push('/generate')}
-                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                >
-                  Be the first to create!
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            generations.map((gen, index) => (
-              <Card key={gen.id} className="bg-gray-800/50 border-gray-700">
-                <CardContent className="p-6">
-                  <div className="flex gap-4">
-                    {/* Voting Panel */}
-                    <div className="flex flex-col items-center gap-2 min-w-[60px]">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleVote(gen.id, 'up')}
-                        className={`p-2 ${gen.userVote === 'up' ? 'text-green-400' : 'text-gray-400 hover:text-green-400'}`}
-                      >
-                        <ArrowUp className="h-5 w-5" />
-                      </Button>
-                      
-                      <div className="text-center">
-                        <div className="font-bold text-lg">{gen.upvotes - gen.downvotes}</div>
-                        <div className="text-xs text-gray-500">votes</div>
-                      </div>
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleVote(gen.id, 'down')}
-                        className={`p-2 ${gen.userVote === 'down' ? 'text-red-400' : 'text-gray-400 hover:text-red-400'}`}
-                      >
-                        <ArrowDown className="h-5 w-5" />
-                      </Button>
-                      
-                      <div className="text-center mt-2">
-                        <div className="text-xs text-purple-400 font-medium">{gen.leaderboardPoints}</div>
-                        <div className="text-xs text-gray-500">points</div>
-                      </div>
+        {/* Thread Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {mockThreads.map((thread) => (
+            <Card key={thread.id} className="bg-gray-900/50 border-gray-700 hover:border-purple-500/50 transition-all duration-300 group">
+              <CardContent className="p-0">
+                {/* Image */}
+                <div className="relative overflow-hidden rounded-t-lg">
+                  <img
+                    src={thread.imageUrl}
+                    alt={thread.prompt}
+                    className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  {/* Model Badge */}
+                  <div className="absolute top-3 right-3">
+                    <Badge className="bg-black/70 text-white border-none text-xs">
+                      {thread.model}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-4">
+                  {/* Prompt */}
+                  <h3 className="text-white font-medium mb-3 line-clamp-2 text-sm">
+                    {thread.prompt}
+                  </h3>
+
+                  {/* Author & Time */}
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                    <div className="flex items-center space-x-1">
+                      <User className="h-3 w-3" />
+                      <span>{thread.author}</span>
                     </div>
-
-                    {/* Content */}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center font-bold">
-                            #{index + 1}
-                          </div>
-                          <div>
-                            <div className="font-medium">
-                              {gen.walletAddress.slice(0, 6)}...{gen.walletAddress.slice(-4)}
-                            </div>
-                            <div className="text-sm text-gray-400 flex items-center gap-2">
-                              <span>{new Date(gen.createdAt).toLocaleString()}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {gen.type === 'image' ? <ImageIcon className="h-3 w-3 mr-1" /> : <Video className="h-3 w-3 mr-1" />}
-                                {gen.type}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                Paid with {gen.paymentMethod}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-300">{gen.prompt}</p>
-                      </div>
-
-                      {/* Generated Content */}
-                      <div className="bg-gray-900/50 rounded-lg overflow-hidden mb-4">
-                        {gen.type === 'image' ? (
-                          <img 
-                            src={gen.result[0]} 
-                            alt="Generated content" 
-                            className="w-full max-w-md mx-auto"
-                          />
-                        ) : (
-                          <video 
-                            src={gen.result[0]} 
-                            controls 
-                            className="w-full max-w-md mx-auto"
-                          />
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center justify-between text-xs text-gray-400">
-                        <div className="flex items-center gap-4">
-                          <span>↑ {gen.upvotes} upvotes</span>
-                          <span>↓ {gen.downvotes} downvotes</span>
-                          <span className="text-purple-400">{gen.leaderboardPoints} points</span>
-                        </div>
-                        
-                        {gen.transactionHash && (
-                          <a
-                            href={`https://sonicscan.org/tx/${gen.transactionHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                          >
-                            View TX <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="h-3 w-3" />
+                      <span>{thread.createdAt}</span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-gray-400 hover:text-red-400 p-1 h-auto"
+                      >
+                        <Heart className="h-4 w-4 mr-1" />
+                        <span className="text-xs">{thread.upvotes}</span>
+                      </Button>
+                      <div className="flex items-center space-x-1 text-gray-500 text-xs">
+                        <Eye className="h-3 w-3" />
+                        <span>{thread.views}</span>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" className="text-gray-400 hover:text-purple-400 p-1 h-auto">
+                      <MessageSquare className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Load More */}
+        <div className="text-center mt-12">
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3">
+            Load More Images
+          </Button>
+        </div>
+
+        {/* Call to Action */}
+        <div className="text-center mt-16 mb-8">
+          <Card className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 border-purple-500/30 max-w-2xl mx-auto">
+            <CardContent className="p-8">
+              <h2 className="text-2xl font-bold text-white mb-4">
+                Create Your Own Masterpiece
+              </h2>
+              <p className="text-gray-300 mb-6">
+                Join our community of AI artists. Generate stunning images and share them with the world.
+              </p>
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
+                onClick={() => window.location.href = '/generate'}
+              >
+                Start Creating
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   )
-}
-
-export default function ThreadPage() {
-  return (
-    <ClientOnlyWrapper fallback={<LoadingFallback />}>
-      <ThreadPageContent />
-    </ClientOnlyWrapper>
-  );
 }

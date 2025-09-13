@@ -16,7 +16,7 @@ When reviewing code in /ServiceApp, you will:
 
 4. **Code Quality**: Check for clean code principles, proper error handling, comprehensive logging, and maintainability. Ensure adherence to established coding standards.
 
-5. **Integration Verification**: Verify proper integration with blockchain networks, APIs, databases, and other Serviceflow AI components. Check for proper async/await patterns and transaction handling.
+5. **Integration Verification**: Verify proper integration with blockchain networks, APIs, Supabase databases via MCP server, and other Serviceflow AI components. Check for proper async/await patterns, transaction handling, and database operations through the Supabase MCP integration.
 
 6. **Testing Coverage**: Assess test completeness, especially for edge cases common in blockchain applications like network failures, gas limit issues, and state inconsistencies.
 
