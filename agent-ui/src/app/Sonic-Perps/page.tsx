@@ -1,12 +1,13 @@
-import "@orderly.network/ui/dist/styles.css";
-
-import React, { FC, ReactNode } from "react";
-import { OrderlyAppProvider } from "@orderly.network/react-app";
-
-const App: FC<{ children: ReactNode }> = (props) => {
+export default function SonicPerpsPage() {
   return (
-    <OrderlyAppProvider brokerId="orderly" brokerName="Orderly" networkId="testnet" appIcons={""}>
-      {props.children}
-    </OrderlyAppProvider>
-  );
-};
+    <div className="min-h-screen bg-neutral-950 text-white">
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-4xl font-bold mb-8">Sonic Perps</h1>
+        <p className="text-lg mb-4">ServiceFlow Sonic Perps - Coming Soon</p>
+        <div className="mt-8">
+          <a href="/" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">← Back to Home</a>
+        </div>
+      </div>
+    </div>
+  )
+}
