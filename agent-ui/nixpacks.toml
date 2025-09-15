@@ -1,6 +1,4 @@
-[providers]
-python = "3.11"
-nodejs = "18"
+providers = ["python", "nodejs"]
 
 [variables]
 NODE_ENV = "production"
