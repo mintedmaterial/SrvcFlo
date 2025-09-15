@@ -1,8 +1,7 @@
 [project]
-name = "agents"
+name = "serviceflow-agent-ui"
 version = "0.1.0"
 description = "ServiceFlow AI Agent-UI Backend System"
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "python-dotenv",
@@ -28,12 +27,8 @@ dependencies = [
     "aiohttp",
     "langfuse",
     "openai",
-    "cryptography>=42.0.0",
-    "cffi>=1.16.0",
-    "tzlocal>=5.0.0",
-    "sqlalchemy>=2.0.0",
-    "pandas>=2.0.0",
-    "pypdf>=4.0.0",
-    "openinference-instrumentation-agno",
-    "fastmcp>=2.10.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
