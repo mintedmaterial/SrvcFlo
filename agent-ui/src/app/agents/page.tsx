@@ -1,82 +1,22 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { ChatArea } from "@/components/playground/ChatArea"
-import { Sidebar } from "@/components/playground/Sidebar"
-import BackgroundPaths from "@/components/background-path"
-
 export default function AgentsPage() {
-  const [isIdle, setIsIdle] = useState(false)
-  const [idleTimer, setIdleTimer] = useState<NodeJS.Timeout | null>(null)
-
-  // Idle detection - show background after 5 minutes of inactivity
-  useEffect(() => {
-    const IDLE_TIME = 5 * 60 * 1000 // 5 minutes
-
-    const resetIdleTimer = () => {
-      setIsIdle(false)
-      if (idleTimer) {
-        clearTimeout(idleTimer)
-      }
-      const newTimer = setTimeout(() => {
-        setIsIdle(true)
-      }, IDLE_TIME)
-      setIdleTimer(newTimer)
-    }
-
-    // Events that reset idle timer
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
-
-    // Add event listeners
-    events.forEach(event => {
-      document.addEventListener(event, resetIdleTimer, true)
-    })
-
-    // Initialize timer
-    resetIdleTimer()
-
-    // Cleanup
-    return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, resetIdleTimer, true)
-      })
-      if (idleTimer) {
-        clearTimeout(idleTimer)
-      }
-    }
-  }, [idleTimer])
-
   return (
-    <div className="relative flex h-screen bg-neutral-950 overflow-hidden">
-      {/* ServiceFlow Background Animation - Only shown when idle */}
-      {isIdle && (
-        <div className="fixed inset-0 z-30">
-          <BackgroundPaths
-            title="ServiceFlow AI Agent UI - Idle"
-            onEnter={() => setIsIdle(false)}
-          />
+    <div className="min-h-screen bg-neutral-950 text-white">
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-4xl font-bold mb-8">ServiceFlow Agent UI</h1>
+        <p className="text-lg mb-4">Welcome to the ServiceFlow Agent UI system.</p>
+        <div className="bg-neutral-800 p-6 rounded-lg">
+          <h2 className="text-2xl font-semibold mb-4">System Status</h2>
+          <p className="text-green-400">✅ Agent UI Frontend: Online</p>
+          <p className="text-yellow-400">⚠️ Agent Backend: Coming Soon</p>
+          <p className="text-blue-400">🚀 Railway Deployment: Success</p>
         </div>
-      )}
-
-      {/* Main UI */}
-      <div className="relative z-20 flex h-screen w-full">
-        {/* Sidebar with enhanced backdrop */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-neutral-900/90 backdrop-blur-md" />
-          <div className="relative z-10">
-            <Sidebar />
-          </div>
-        </div>
-
-        {/* Main Content with enhanced backdrop */}
-        <div className="flex flex-1 flex-col relative">
-          <div className="absolute inset-0 bg-neutral-950/80" />
-          <div className="relative z-10 flex flex-1 flex-col">
-            {/* Chat Interface */}
-            <div className="flex-1 overflow-hidden">
-              <ChatArea />
-            </div>
-          </div>
+        <div className="mt-8">
+          <a
+            href="/"
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
+          >
+            ← Back to Home
+          </a>
         </div>
       </div>
     </div>
