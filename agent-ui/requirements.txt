@@ -1,0 +1,65 @@
+# Core Agno Framework
+agno==1.7.12
+
+# Core Dependencies
+aiofiles==24.1.0
+aiohappyeyeballs==2.6.1
+aiohttp==3.12.13
+aiohttp-retry==2.9.1
+aiosignal==1.4.0
+aiosqlite==0.21.0
+annotated-types==0.7.0
+anthropic==0.51.0
+anyio==4.9.0
+attrs==25.3.0
+
+# Web Framework
+Flask==3.1.2
+flask-cors==6.0.1
+fastapi==0.115.12
+fastapi-cli==0.0.7
+
+# OpenAI and AI Tools
+openai==1.93.0
+openai-agents==0.0.6
+
+# Database and Storage
+pymongo==4.13.2
+SQLAlchemy==2.0.40
+psycopg2-binary
+
+# Web Scraping and Tools
+beautifulsoup4==4.13.4
+requests==2.32.4
+httpx==0.28.1
+duckduckgo_search==8.0.1
+feedparser==6.0.11
+
+# Discord Integration
+discord.py==2.6.2
+
+# Blockchain and Crypto
+web3==7.10.0
+eth-account==0.13.7
+eth-hash==0.7.1
+eth-keys==0.7.0
+eth-utils==5.3.0
+
+# Utilities
+python-dotenv==1.1.0
+click==8.1.8
+typer==0.15.3
+rich==13.9.4
+pydantic==2.11.7
+pydantic-settings==2.9.1
+
+# Data Processing
+pandas==2.2.3
+numpy==2.2.5
+pillow==10.4.0
+
+# Additional Tools
+gitpython==3.1.44
+schedule==1.2.2
+tenacity==9.1.2
+typing-extensions==4.14.1
