@@ -1,0 +1,125 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+.env.local
+.env.production
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Credentials and secrets - CRITICAL FOR SECURITY
+credentials/
+tokens/
+*token*.json
+client_secret_*.json
+*.pem
+*.key
+rootkey.csv
+.dev.vars
+
+# Specific sensitive files you mentioned
+client_secret_645431798768-gverbsba88babmc6e8a8ctfp0fk3ievr.apps.googleusercontent.com.json
+token.json
+
+# Additional security exclusions
+*secret*
+*private*
+*config*.json
+wrangler.toml
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments - Critical for agents
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.conda
+Agents/.venv/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+playground.log
+
+# AI/ML model files
+*.pt
+*.pth
+*.pkl
+*.joblib
+*.model
+
+# Vector databases
+lancedb/
+
+# Large files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Temporary files
+tmp/
+temp/
+*.tmp

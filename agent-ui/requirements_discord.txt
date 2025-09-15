@@ -1,0 +1,18 @@
+# Discord Bot Integration Requirements
+discord.py>=2.3.0
+
+# Core dependencies (if not already installed)
+agno>=0.1.0
+openai>=1.0.0
+python-dotenv>=1.0.0
+httpx>=0.24.0
+asyncio-throttle>=1.0.2
+
+# Database dependencies
+pymongo>=4.0.0
+motor>=3.0.0
+
+# Optional but recommended
+langfuse>=2.0.0
+uvicorn>=0.20.0
+fastapi>=0.100.0

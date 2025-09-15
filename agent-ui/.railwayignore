@@ -1,0 +1,88 @@
+# ServiceFlow Agent-UI Railway Ignore File
+
+# Environment files (use Railway environment variables instead)
+.env
+.env.local
+.env.example
+.env.*
+!.env.railway
+
+# Development files
+.vscode/
+.next/
+node_modules/
+.venv/
+Agents/.venv/
+Agents/__pycache__/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Local storage and logs
+storage/
+tmp/
+Agents/storage/
+Agents/tmp/
+Agents/memory/
+Agents/knowledge/
+*.log
+playground.log
+
+# Test files and examples
+tests/
+test_*.py
+*_test.py
+test_*.js
+*.test.js
+simple-test.js
+final-integration-test.js
+network-monitor.js
+
+# Credentials and secrets (security)
+credentials/
+token.json
+client_secret_*.json
+*.pem
+*.key
+*.crt
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Git files
+.git/
+.gitignore
+
+# Documentation and guides
+README.md
+*.md
+SECURITY_CHECKLIST.md
+DISCORD_SETUP.md
+TESTING_GUIDE.md
+
+# Batch and script files (Windows specific)
+*.bat
+*.ps1
+
+# Lock files (let Railway generate fresh)
+package-lock.json
+uv.lock
+yarn.lock
+
+# Development tools
+playwright.config.ts
+.github/
+hardhat.config.js

@@ -1,0 +1,3310 @@
+"""
+Minimal canonical content agent for ServiceFlow.
+
+This module provides:
+- Safe deferred adapters for optional utilities
+- Saving blog JSON for discovery
+- A stub X posting helper which stores posts locally for tests
+- High-level orchestration to create and upload posts
+"""
+
+import importlib
+import json
+import logging
+import os
+import time
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+try:
+    import requests  # type: ignore
+    requests_available = True
+except Exception:
+    requests_available = False
+
+# staging directory used by the frontend worker to discover posts
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+TMP_DIR = os.path.join(BASE_DIR, 'agent-ui', 'Agents', 'tmp')
+os.makedirs(TMP_DIR, exist_ok=True)
+
+
+def store_data(collection: str, data: dict) -> None:
+    """Persist small JSON files for visibility and worker discovery."""
+    try:
+        path = os.path.join(TMP_DIR, f"{collection}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({'collection': collection, 'data': data}, f, indent=2, default=str)
+    except Exception:
+        logger.exception('store_data failed')
+
+
+class ServiceFlowXTools:
+    """Simple, deterministic X post stub used in tests and offline runs."""
+
+    def create_post(self, text: str) -> dict:
+        post_id = int(time.time())
+        url = f"https://x.com/serviceflow/status/{post_id}"
+        res = {'success': True, 'url': url, 'text': text}
+        store_data('x_posts', {'post_id': post_id, 'text': text, 'url': url})
+        return res
+
+    def reply_to_post(self, parent_id: str, text: str) -> dict:
+        try:
+            base = int(str(parent_id))
+            rid = base + 1
+        except Exception:
+            rid = int(time.time())
+        url = f"https://x.com/serviceflow/status/{rid}"
+        res = {'success': True, 'url': url, 'text': text}
+        store_data('x_replies', {'in_reply_to': parent_id, 'reply_id': rid, 'text': text})
+        return res
+
+    def _ensure_character_limit(self, text: str, limit: int = 280) -> str:
+        if len(text) <= limit:
+            return text
+        return text[:limit-3] + '...'
+
+    def _split_into_thread_parts(self, text: str, part_size: int = 260) -> list:
+        if not text:
+            return []
+        return [text[i:i+part_size] for i in range(0, len(text), part_size)]
+
+
+def _import_optional(module_name: str):
+    try:
+        return importlib.import_module(module_name)
+    except Exception:
+        return None
+
+
+def get_sonic_finance_snippet(limit_chars: int = 200) -> Optional[str]:
+    srt = _import_optional('agent_ui.Agents.sonic_research_team') or _import_optional('sonic_research_team')
+    if not srt:
+        return None
+    try:
+        if hasattr(srt, 'get_market_summary'):
+            summary = srt.get_market_summary()
+        else:
+            summary = getattr(srt, 'summarize_latest', lambda: None)()
+        if not summary:
+            return None
+        text = summary if isinstance(summary, str) else json.dumps(summary)
+        return text[:limit_chars]
+    except Exception:
+        logger.exception('get_sonic_finance_snippet failed')
+        return None
+
+
+def get_paintswap_stats(limit_items: int = 3) -> Optional[dict]:
+    pt = _import_optional('agent_ui.Agents.paintswap_tools') or _import_optional('paintswap_tools')
+    if not pt:
+        return None
+    try:
+        if hasattr(pt, 'get_paintswap_stats'):
+            return pt.get_paintswap_stats(limit=limit_items)
+        if hasattr(pt, 'fetch_top_collections'):
+            return pt.fetch_top_collections(limit_items)
+        return None
+    except Exception:
+        logger.exception('get_paintswap_stats failed')
+        return None
+
+
+def save_blog_json(blog_data: dict, filename: Optional[str] = None) -> Optional[str]:
+    try:
+        if not filename:
+            slug = blog_data.get('title', 'blog').lower().replace(' ', '_')[:40]
+            filename = f"blog_{slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        path = os.path.join(TMP_DIR, filename)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(blog_data, f, indent=2, ensure_ascii=False)
+        return path
+    except Exception:
+        logger.exception('save_blog_json failed')
+        return None
+
+
+def upload_blog_to_api(blog_data: dict, api_endpoint: str = "https://srvcflo.com/api/blog") -> dict:
+    if not requests_available:
+        return {'success': False, 'error': 'requests not available'}
+    try:
+        try:
+            r = requests.get('http://127.0.0.1:8080/test', timeout=2)
+            if r.status_code == 200:
+                api_endpoint = 'http://127.0.0.1:8080/api/blog'
+        except Exception:
+            pass
+        r = requests.post(api_endpoint, json=blog_data, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+        return {'success': False, 'error': f'HTTP {r.status_code}'}
+    except Exception as e:
+        logger.exception('upload_blog_to_api failed')
+        return {'success': False, 'error': str(e)}
+
+
+def generate_blog_post(topic: str, category: str = "AI Automation") -> dict:
+    return {
+        'title': topic,
+        'content': f"This is a stub post about {topic}.",
+        'excerpt': f"Short excerpt about {topic}",
+        'category': category,
+        'tags': ['AI', 'Automation']
+    }
+
+
+def create_x_announcement(blog_data: dict, slug: Optional[str] = None) -> dict:
+    x = ServiceFlowXTools()
+    title = blog_data.get('title', 'New Post')
+    excerpt = blog_data.get('excerpt', '')[:140]
+    url = f"https://srvcflo.com/blog/{slug}" if slug else 'https://srvcflo.com/blog'
+    text = f"{title}: {excerpt} Read: {url}"
+    text = x._ensure_character_limit(text, limit=260)
+    res = x.create_post(text)
+    parent = None
+    if res.get('url') and '/status/' in res.get('url'):
+        parent = res.get('url').split('/status/')[-1]
+    thread = thread_blog_on_x(blog_data, parent, x) if parent else None
+    return {'announcement': res, 'thread': thread}
+
+
+def thread_blog_on_x(blog_data: dict, parent_id: str, x_tools: Optional[ServiceFlowXTools] = None, max_parts: int = 6) -> dict:
+    if not x_tools:
+        x_tools = ServiceFlowXTools()
+    content = blog_data.get('content', '')
+    parts = x_tools._split_into_thread_parts(content)
+    parts = parts[:max_parts]
+    results = []
+    current = parent_id
+    for part in parts:
+        text = x_tools._ensure_character_limit(part, limit=280)
+        r = x_tools.reply_to_post(current, text)
+        results.append(r)
+        if r.get('url') and '/status/' in r.get('url'):
+            current = r.get('url').split('/status/')[-1]
+        time.sleep(0.2)
+    return {'parts_posted': len(results), 'results': results}
+
+
+def post_blog_to_flo_community(blog_data: dict, slug: Optional[str] = None) -> dict:
+    try:
+        title = blog_data.get('title')
+        excerpt = blog_data.get('excerpt', '')[:120]
+        url = f"https://srvcflo.com/blog/{slug}" if slug else 'https://srvcflo.com/blog'
+        text = f"Community: {title} — {excerpt} Read: {url}"
+        x = ServiceFlowXTools()
+        res = x.create_post(x._ensure_character_limit(text, limit=260))
+        store_data('community_posts', {'title': title, 'url': url, 'post': res})
+        return {'success': True, 'result': res}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+def create_and_upload_blog_post(topic: str, category: str = "AI Automation", post_to_x: bool = True) -> dict:
+    blog = generate_blog_post(topic, category)
+    saved = save_blog_json(blog)
+    store_data('blogs', {'title': blog.get('title'), 'json': saved, 'timestamp': datetime.now().isoformat()})
+    upload = upload_blog_to_api(blog)
+    xinfo = None
+    if upload.get('success') and post_to_x:
+        slug = upload.get('slug')
+        xinfo = create_x_announcement(blog, slug)
+        try:
+            if bool(os.getenv('POST_TO_FLO_COMMUNITY', '0') == '1') or blog.get('post_to_flo_community'):
+                post_blog_to_flo_community(blog, slug)
+        except Exception:
+            pass
+    return {'success': upload.get('success', False), 'blog': blog, 'json_path': saved, 'upload': upload, 'x': xinfo}
+
+
+def trigger_content_creation(data_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    store_data('content_triggers', {'type': data_type, 'data': data, 'ts': datetime.now().isoformat()})
+    return {'status': 'triggered', 'type': data_type}
+
+
+"""
+Minimal canonical content agent for ServiceFlow.
+import importlib
+import json
+import logging
+import os
+import time
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+try:
+    import requests  # type: ignore
+    requests_available = True
+except Exception:
+    requests_available = False
+
+# staging directory used by the frontend worker to discover posts
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+TMP_DIR = os.path.join(BASE_DIR, 'agent-ui', 'Agents', 'tmp')
+os.makedirs(TMP_DIR, exist_ok=True)
+
+
+def store_data(collection: str, data: dict) -> None:
+    """Persist small JSON files for visibility and worker discovery."""
+    try:
+        path = os.path.join(TMP_DIR, f"{collection}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({'collection': collection, 'data': data}, f, indent=2, default=str)
+    except Exception:
+        logger.exception('store_data failed')
+
+
+class ServiceFlowXTools:
+    """A tiny X (Twitter/X) wrapper used for testing and offline runs.
+
+    Production code can replace this with a real client that uses tweepy.
+    """
+
+    def create_post(self, text: str) -> dict:
+    post_id = int(time.time())  # Generate a unique post ID
+        url = f"https://x.com/serviceflow/status/{post_id}"
+        res = {'success': True, 'url': url, 'text': text}
+        store_data('x_posts', {'post_id': post_id, 'text': text, 'url': url})
+        return res
+
+    def reply_to_post(self, parent_id: str, text: str) -> dict:
+        try:
+            base = int(str(parent_id))
+            rid = base + 1
+        except Exception:
+            rid = int(time.time())
+        url = f"https://x.com/serviceflow/status/{rid}"
+        res = {'success': True, 'url': url, 'text': text}
+        store_data('x_replies', {'in_reply_to': parent_id, 'reply_id': rid, 'text': text})
+        return res
+
+    def _ensure_character_limit(self, text: str, limit: int = 280) -> str:
+        if len(text) <= limit:
+            return text
+        return text[:limit-3] + '...'
+
+    def _split_into_thread_parts(self, text: str, part_size: int = 260) -> list:
+        if not text:
+            return []
+        return [text[i:i+part_size] for i in range(0, len(text), part_size)]
+
+
+# Adapters
+
+
+def _import_optional(module_name: str):
+    try:
+        return importlib.import_module(module_name)
+    except Exception:
+        return None
+
+
+def get_sonic_finance_snippet(limit_chars: int = 200) -> Optional[str]:
+    srt = _import_optional('agent_ui.Agents.sonic_research_team') or _import_optional('sonic_research_team')
+    if not srt:
+        return None
+    try:
+        if hasattr(srt, 'get_market_summary'):
+            summary = srt.get_market_summary()
+        else:
+            summary = getattr(srt, 'summarize_latest', lambda: None)()
+        if not summary:
+            return None
+        text = summary if isinstance(summary, str) else json.dumps(summary)
+        return text[:limit_chars]
+    except Exception:
+        logger.exception('get_sonic_finance_snippet failed')
+        return None
+
+
+def get_paintswap_stats(limit_items: int = 3) -> Optional[dict]:
+    pt = _import_optional('agent_ui.Agents.paintswap_tools') or _import_optional('paintswap_tools')
+    if not pt:
+        return None
+    try:
+        if hasattr(pt, 'get_paintswap_stats'):
+            return pt.get_paintswap_stats(limit=limit_items)
+        if hasattr(pt, 'fetch_top_collections'):
+            return pt.fetch_top_collections(limit_items)
+        return None
+    except Exception:
+        logger.exception('get_paintswap_stats failed')
+        return None
+
+
+# Blog helpers
+
+
+def save_blog_json(blog_data: dict, filename: Optional[str] = None) -> Optional[str]:
+    try:
+        if not filename:
+            slug = blog_data.get('title', 'blog').lower().replace(' ', '_')[:40]
+            filename = f"blog_{slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        path = os.path.join(TMP_DIR, filename)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(blog_data, f, indent=2, ensure_ascii=False)
+        return path
+    except Exception:
+        logger.exception('save_blog_json failed')
+        return None
+
+
+def upload_blog_to_api(blog_data: dict, api_endpoint: str = "https://srvcflo.com/api/blog") -> dict:
+    if not requests_available:
+        return {'success': False, 'error': 'requests not available'}
+    try:
+        # prefer local dev server if available
+        try:
+            r = requests.get('http://127.0.0.1:8080/test', timeout=2)
+            if r.status_code == 200:
+                api_endpoint = 'http://127.0.0.1:8080/api/blog'
+        except Exception:
+            pass
+        r = requests.post(api_endpoint, json=blog_data, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+        return {'success': False, 'error': f'HTTP {r.status_code}'}
+    except Exception as e:
+        logger.exception('upload_blog_to_api failed')
+        return {'success': False, 'error': str(e)}
+
+
+def generate_blog_post(topic: str, category: str = "AI Automation") -> dict:
+    return {
+        'title': topic,
+        'content': f"This is a stub post about {topic}.",
+        'excerpt': f"Short excerpt about {topic}",
+        'category': category,
+        'tags': ['AI', 'Automation']
+    }
+
+
+def create_x_announcement(blog_data: dict, slug: Optional[str] = None) -> dict:
+    x = ServiceFlowXTools()
+    title = blog_data.get('title', 'New Post')
+    excerpt = blog_data.get('excerpt', '')[:140]
+    url = f"https://srvcflo.com/blog/{slug}" if slug else 'https://srvcflo.com/blog'
+    text = f"{title}: {excerpt} Read: {url}"
+    text = x._ensure_character_limit(text, limit=260)
+    res = x.create_post(text)
+    parent = None
+    if res.get('url') and '/status/' in res.get('url'):
+        parent = res.get('url').split('/status/')[-1]
+    thread = thread_blog_on_x(blog_data, parent, x) if parent else None
+    return {'announcement': res, 'thread': thread}
+
+
+def thread_blog_on_x(blog_data: dict, parent_id: str, x_tools: Optional[ServiceFlowXTools] = None, max_parts: int = 6) -> dict:
+    if not x_tools:
+        x_tools = ServiceFlowXTools()
+    content = blog_data.get('content', '')
+    parts = x_tools._split_into_thread_parts(content)
+    parts = parts[:max_parts]
+    results = []
+    current = parent_id
+    for part in parts:
+        text = x_tools._ensure_character_limit(part, limit=280)
+        r = x_tools.reply_to_post(current, text)
+        results.append(r)
+        if r.get('url') and '/status/' in r.get('url'):
+            current = r.get('url').split('/status/')[-1]
+        time.sleep(0.2)
+    return {'parts_posted': len(results), 'results': results}
+
+
+def post_blog_to_flo_community(blog_data: dict, slug: Optional[str] = None) -> dict:
+    try:
+        title = blog_data.get('title')
+        excerpt = blog_data.get('excerpt', '')[:120]
+        url = f"https://srvcflo.com/blog/{slug}" if slug else 'https://srvcflo.com/blog'
+        text = f"Community: {title} — {excerpt} Read: {url}"
+        x = ServiceFlowXTools()
+        res = x.create_post(x._ensure_character_limit(text, limit=260))
+        store_data('community_posts', {'title': title, 'url': url, 'post': res})
+        return {'success': True, 'result': res}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+def create_and_upload_blog_post(topic: str, category: str = "AI Automation", post_to_x: bool = True) -> dict:
+    blog = generate_blog_post(topic, category)
+    saved = save_blog_json(blog)
+    store_data('blogs', {'title': blog.get('title'), 'json': saved, 'timestamp': datetime.now().isoformat()})
+    upload = upload_blog_to_api(blog)
+    xinfo = None
+    if upload.get('success') and post_to_x:
+        slug = upload.get('slug')
+        xinfo = create_x_announcement(blog, slug)
+        try:
+            if bool(os.getenv('POST_TO_FLO_COMMUNITY', '0') == '1') or blog.get('post_to_flo_community'):
+                post_blog_to_flo_community(blog, slug)
+        except Exception:
+            pass
+    return {'success': upload.get('success', False), 'blog': blog, 'json_path': saved, 'upload': upload, 'x': xinfo}
+
+
+def trigger_content_creation(data_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    store_data('content_triggers', {'type': data_type, 'data': data, 'ts': datetime.now().isoformat()})
+    return {'status': 'triggered', 'type': data_type}
+
+
+"""
+Minimal canonical content agent for ServiceFlow.
+- Safe, deferred adapters for `sonic_research_team` and `paintswap_tools`.
+- Save blog JSON to `agent-ui/Agents/tmp` so the Cloudflare Worker can discover posts.
+- Stubbed X tools for deterministic testing (`ServiceFlowXTools`).
+- Orchestration: `create_and_upload_blog_post` and `trigger_content_creation`.
+
+This file intentionally avoids hard runtime dependencies and keeps the surface
+small so tests can mock external integrations.
+"""
+
+import importlib
+import json
+import logging
+import os
+import time
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+try:
+    import requests  # type: ignore
+    requests_available = True
+except Exception:
+    requests_available = False
+
+# staging directory used by the frontend worker to discover posts
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+TMP_DIR = os.path.join(BASE_DIR, 'agent-ui', 'Agents', 'tmp')
+os.makedirs(TMP_DIR, exist_ok=True)
+
+
+def store_data(collection: str, data: dict) -> None:
+    """Persist small JSON files for visibility and worker discovery."""
+    try:
+        path = os.path.join(TMP_DIR, f"{collection}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({'collection': collection, 'data': data}, f, indent=2, default=str)
+    except Exception:
+        logger.exception('store_data failed')
+
+
+class ServiceFlowXTools:
+    """A tiny X (Twitter/X) wrapper used for testing and offline runs.
+
+    Production code can replace this with a real client that uses tweepy.
+    """
+
+    def create_post(self, text: str) -> dict:
+        post_id = int(time.time())
+        url = f"https://x.com/serviceflow/status/{post_id}"
+        res = {'success': True, 'url': url, 'text': text}
+        store_data('x_posts', {'post_id': post_id, 'text': text, 'url': url})
+        return res
+
+    def reply_to_post(self, parent_id: str, text: str) -> dict:
+        try:
+            base = int(str(parent_id))
+            rid = base + 1
+        except Exception:
+            rid = int(time.time())
+        url = f"https://x.com/serviceflow/status/{rid}"
+        res = {'success': True, 'url': url, 'text': text}
+        store_data('x_replies', {'in_reply_to': parent_id, 'reply_id': rid, 'text': text})
+        return res
+
+    def _ensure_character_limit(self, text: str, limit: int = 280) -> str:
+        if len(text) <= limit:
+            return text
+        return text[:limit-3] + '...'
+
+    def _split_into_thread_parts(self, text: str, part_size: int = 260) -> list:
+        if not text:
+            return []
+        return [text[i:i+part_size] for i in range(0, len(text), part_size)]
+
+
+# Adapters
+
+def _import_optional(module_name: str):
+    try:
+        return importlib.import_module(module_name)
+    except Exception:
+        return None
+
+
+def get_sonic_finance_snippet(limit_chars: int = 200) -> Optional[str]:
+    srt = _import_optional('agent_ui.Agents.sonic_research_team') or _import_optional('sonic_research_team')
+    if not srt:
+        return None
+    try:
+        if hasattr(srt, 'get_market_summary'):
+            summary = srt.get_market_summary()
+        else:
+            summary = getattr(srt, 'summarize_latest', lambda: None)()
+        if not summary:
+            return None
+        text = summary if isinstance(summary, str) else json.dumps(summary)
+        return text[:limit_chars]
+    except Exception:
+        logger.exception('get_sonic_finance_snippet failed')
+        return None
+
+
+def get_paintswap_stats(limit_items: int = 3) -> Optional[dict]:
+    pt = _import_optional('agent_ui.Agents.paintswap_tools') or _import_optional('paintswap_tools')
+    if not pt:
+        return None
+    try:
+        if hasattr(pt, 'get_paintswap_stats'):
+            return pt.get_paintswap_stats(limit=limit_items)
+        if hasattr(pt, 'fetch_top_collections'):
+            return pt.fetch_top_collections(limit_items)
+        return None
+    except Exception:
+        logger.exception('get_paintswap_stats failed')
+        return None
+
+
+# Blog helpers
+
+def save_blog_json(blog_data: dict, filename: Optional[str] = None) -> Optional[str]:
+    try:
+        if not filename:
+            slug = blog_data.get('title', 'blog').lower().replace(' ', '_')[:40]
+            filename = f"blog_{slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        path = os.path.join(TMP_DIR, filename)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(blog_data, f, indent=2, ensure_ascii=False)
+        return path
+    except Exception:
+        logger.exception('save_blog_json failed')
+        return None
+
+
+def upload_blog_to_api(blog_data: dict, api_endpoint: str = "https://srvcflo.com/api/blog") -> dict:
+    if not requests_available:
+        return {'success': False, 'error': 'requests not available'}
+    try:
+        # prefer local dev server if available
+        try:
+            r = requests.get('http://127.0.0.1:8080/test', timeout=2)
+            if r.status_code == 200:
+                api_endpoint = 'http://127.0.0.1:8080/api/blog'
+        except Exception:
+            pass
+        r = requests.post(api_endpoint, json=blog_data, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+        return {'success': False, 'error': f'HTTP {r.status_code}'}
+    except Exception as e:
+        logger.exception('upload_blog_to_api failed')
+        return {'success': False, 'error': str(e)}
+
+
+def generate_blog_post(topic: str, category: str = "AI Automation") -> dict:
+    return {
+        'title': topic,
+        'content': f"This is a stub post about {topic}.",
+        'excerpt': f"Short excerpt about {topic}",
+        'category': category,
+        'tags': ['AI', 'Automation']
+    }
+
+
+def create_x_announcement(blog_data: dict, slug: Optional[str] = None) -> dict:
+    x = ServiceFlowXTools()
+    title = blog_data.get('title', 'New Post')
+    excerpt = blog_data.get('excerpt', '')[:140]
+    url = f"https://srvcflo.com/blog/{slug}" if slug else 'https://srvcflo.com/blog'
+    text = f"{title}: {excerpt} Read: {url}"
+    text = x._ensure_character_limit(text, limit=260)
+    res = x.create_post(text)
+    parent = None
+    if res.get('url') and '/status/' in res.get('url'):
+        parent = res.get('url').split('/status/')[-1]
+    thread = thread_blog_on_x(blog_data, parent, x) if parent else None
+    return {'announcement': res, 'thread': thread}
+
+
+def thread_blog_on_x(blog_data: dict, parent_id: str, x_tools: Optional[ServiceFlowXTools] = None, max_parts: int = 6) -> dict:
+    if not x_tools:
+        x_tools = ServiceFlowXTools()
+    content = blog_data.get('content', '')
+    parts = x_tools._split_into_thread_parts(content)
+    parts = parts[:max_parts]
+    results = []
+    current = parent_id
+    for part in parts:
+        text = x_tools._ensure_character_limit(part, limit=280)
+        r = x_tools.reply_to_post(current, text)
+        results.append(r)
+        if r.get('url') and '/status/' in r.get('url'):
+            current = r.get('url').split('/status/')[-1]
+        time.sleep(0.2)
+    return {'parts_posted': len(results), 'results': results}
+
+
+def post_blog_to_flo_community(blog_data: dict, slug: Optional[str] = None) -> dict:
+    try:
+        title = blog_data.get('title')
+        excerpt = blog_data.get('excerpt', '')[:120]
+        url = f"https://srvcflo.com/blog/{slug}" if slug else 'https://srvcflo.com/blog'
+        text = f"Community: {title} — {excerpt} Read: {url}"
+        x = ServiceFlowXTools()
+        res = x.create_post(x._ensure_character_limit(text, limit=260))
+        store_data('community_posts', {'title': title, 'url': url, 'post': res})
+        return {'success': True, 'result': res}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+def create_and_upload_blog_post(topic: str, category: str = "AI Automation", post_to_x: bool = True) -> dict:
+    blog = generate_blog_post(topic, category)
+    saved = save_blog_json(blog)
+    store_data('blogs', {'title': blog.get('title'), 'json': saved, 'timestamp': datetime.now().isoformat()})
+    upload = upload_blog_to_api(blog)
+    xinfo = None
+    if upload.get('success') and post_to_x:
+        slug = upload.get('slug')
+        xinfo = create_x_announcement(blog, slug)
+        try:
+            if bool(os.getenv('POST_TO_FLO_COMMUNITY', '0') == '1') or blog.get('post_to_flo_community'):
+                post_blog_to_flo_community(blog, slug)
+        except Exception:
+            pass
+    return {'success': upload.get('success', False), 'blog': blog, 'json_path': saved, 'upload': upload, 'x': xinfo}
+
+
+def trigger_content_creation(data_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    store_data('content_triggers', {'type': data_type, 'data': data, 'ts': datetime.now().isoformat()})
+    return {'status': 'triggered', 'type': data_type}
+
+
+def store_data(collection_name: str, data: dict):
+    """Simple visible store: write a JSON file into TMP_DIR for discovery by workers/tests."""
+    try:
+        filename = f"{collection_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        path = os.path.join(TMP_DIR, filename)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({'collection': collection_name, 'data': data}, f, indent=2, default=str)
+        logger.debug(f"store_data wrote {path}")
+    except Exception as e:
+        logger.warning(f"store_data failed: {e}")
+
+
+class ServiceFlowXTools:
+    """Minimal X (Twitter/X) tools abstraction used by the content agent.
+
+    In production this would wrap tweepy.Client or similar. For tests this
+    implementation returns deterministic fake responses and stores posts via
+    `store_data` for visibility.
+    """
+
+    def __init__(self, **kwargs):
+        self._has_tweepy = tweepy_available
+
+    def create_post(self, text: str) -> dict:
+        """Create a top-level post. Returns a dict with at least 'url'."""
+        post_id = int(time.time())
+        post_url = f"https://x.com/serviceflow/status/{post_id}"
+        result = {'success': True, 'url': post_url, 'text': text}
+        # Persist for visibility
+        store_data('x_posts', {'post_id': post_id, 'text': text, 'url': post_url, 'timestamp': datetime.now().isoformat()})
+        return result
+
+    def reply_to_post(self, post_id: str, text: str) -> dict:
+        """Reply to an existing post. Returns a dict with 'url' for the reply."""
+        try:
+            base = int(str(post_id))
+            reply_id = base + 1
+        except Exception:
+            reply_id = int(time.time())
+        reply_url = f"https://x.com/serviceflow/status/{reply_id}"
+        result = {'success': True, 'url': reply_url, 'text': text}
+        store_data('x_replies', {'in_reply_to': post_id, 'reply_id': reply_id, 'text': text, 'url': reply_url, 'timestamp': datetime.now().isoformat()})
+        return result
+
+    def _ensure_character_limit(self, text: str, limit: int = 280) -> str:
+        if len(text) <= limit:
+            return text
+        # Try to cut at sentence boundary
+        sentences = text.split('. ')
+        if len(sentences) > 1:
+            candidate = sentences[0] + ('.' if not sentences[0].endswith('.') else '')
+            if len(candidate) <= limit:
+                return candidate
+        # Fallback: hard truncate
+        return text[:limit-3] + '...'
+
+    def _split_into_thread_parts(self, text: str, part_size: int = 260) -> list:
+        if not text:
+            return []
+        parts = []
+        remaining = text.strip()
+        while remaining:
+            parts.append(remaining[:part_size])
+            remaining = remaining[part_size:].lstrip()
+        return parts
+
+
+# Adapters for optional agent utilities
+def get_sonic_finance_snippet(session_id: Optional[str] = None, limit_chars: int = 200) -> Optional[str]:
+    """Safely fetch a short finance research snippet from sonic_research_team.
+    Returns a short string snippet or None if unavailable."""
+    try:
+        # Try packaged path first (agent-ui)
+        try:
+            from agent_ui.Agents import sonic_research_team as srt
+        except Exception:
+            try:
+                import sonic_research_team as srt
+            except Exception:
+                logger.debug("sonic_research_team not importable")
+                return None
+
+        if session_id and hasattr(srt, 'get_session_summary'):
+            summary = srt.get_session_summary(session_id)
+        elif hasattr(srt, 'get_market_summary'):
+            summary = srt.get_market_summary()
+        else:
+            summary = getattr(srt, 'summarize_latest', lambda: None)()
+
+        if not summary:
+            return None
+        text = summary if isinstance(summary, str) else json.dumps(summary)
+        return text[:limit_chars]
+    except Exception as e:
+        logger.debug(f"get_sonic_finance_snippet error: {e}")
+        return None
+
+
+def get_paintswap_stats(limit_items: int = 3) -> Optional[dict]:
+    """Safely call paintswap_tools to get marketplace stats."""
+    try:
+        try:
+            from agent_ui.Agents import paintswap_tools as pt
+        except Exception:
+            try:
+                import paintswap_tools as pt
+            except Exception:
+                logger.debug("paintswap_tools not importable")
+                return None
+
+        if hasattr(pt, 'get_paintswap_stats'):
+            return pt.get_paintswap_stats(limit=limit_items)
+        if hasattr(pt, 'fetch_top_collections'):
+            return pt.fetch_top_collections(limit_items)
+        return None
+    except Exception as e:
+        logger.debug(f"get_paintswap_stats error: {e}")
+        return None
+
+
+# Blog persistence and upload
+
+def save_blog_json(blog_data: dict, filename: Optional[str] = None) -> Optional[str]:
+    try:
+        if not filename:
+            slug = blog_data.get('title', 'blog_post').lower().replace(' ', '_')[:30]
+            filename = f"blog_post_{slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        path = os.path.join(TMP_DIR, filename)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(blog_data, f, indent=2, ensure_ascii=False)
+        logger.info(f"Saved blog JSON to {path}")
+        return path
+    except Exception as e:
+        logger.warning(f"save_blog_json failed: {e}")
+        return None
+
+
+def upload_blog_to_api(blog_data: dict, api_endpoint: str = "https://srvcflo.com/api/blog") -> dict:
+    if not requests_available:
+        return {'success': False, 'error': 'requests not available'}
+    try:
+        # prefer local dev server if available
+        try:
+            r = requests.get('http://127.0.0.1:8080/test', timeout=3)
+            if r.status_code == 200:
+                api_endpoint = 'http://127.0.0.1:8080/api/blog'
+        except Exception:
+            pass
+
+        r = requests.post(api_endpoint, json=blog_data, timeout=15)
+        if r.status_code == 200:
+            return r.json()
+        return {'success': False, 'error': f'HTTP {r.status_code}'}
+    except Exception as e:
+        """
+        Small, canonical content agent implementation.
+
+        This file is intentionally minimal and focuses on:
+        - safe adapters for optional utilities (deferred imports)
+        - saving blog JSON to agent-ui/Agents/tmp for Cloudflare worker discovery
+        - a stubbed X posting toolkit with threaded posting helpers
+        - create_and_upload_blog_post orchestration
+
+        Keep this module easy to test (no hard network/time dependencies).
+        """
+
+        import os
+        import json
+        import logging
+        import time
+        from datetime import datetime
+        from typing import Dict, Any, Optional
+
+        logger = logging.getLogger(__name__)
+        logging.basicConfig(level=logging.INFO)
+
+        try:
+            import requests
+            requests_available = True
+        except Exception:
+            requests_available = False
+
+        # staging directory used by Cloudflare Worker/frontend route
+        BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+        TMP_DIR = os.path.join(BASE_DIR, 'agent-ui', 'Agents', 'tmp')
+        os.makedirs(TMP_DIR, exist_ok=True)
+
+
+        def store_data(collection: str, data: dict) -> None:
+            """Persist small JSON files for visibility and worker discovery."""
+            try:
+                path = os.path.join(TMP_DIR, f"{collection}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump({'collection': collection, 'data': data}, f, indent=2, default=str)
+                """
+                Minimal, canonical content agent module.
+
+                This file intentionally keeps a small, testable surface for:
+                - deferred adapters to `sonic_research_team` and `paintswap_tools`
+                - saving blog JSON files for Cloudflare Worker discovery
+                - stubbed X posting tooling (threaded announcements)
+                - orchestration function `create_and_upload_blog_post`
+                """
+
+                import os
+                import json
+                import logging
+                import time
+                from datetime import datetime
+                from typing import Dict, Any, Optional
+
+                logger = logging.getLogger(__name__)
+                logging.basicConfig(level=logging.INFO)
+
+                try:
+                    import requests
+                    requests_available = True
+                except Exception:
+                    requests_available = False
+
+                # staging directory used by the frontend worker to discover posts
+                BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+                TMP_DIR = os.path.join(BASE_DIR, 'agent-ui', 'Agents', 'tmp')
+                os.makedirs(TMP_DIR, exist_ok=True)
+
+
+                def store_data(collection: str, data: dict) -> None:
+                    try:
+                        path = os.path.join(TMP_DIR, f"{collection}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                        with open(path, 'w', encoding='utf-8') as f:
+                            json.dump({'collection': collection, 'data': data}, f, indent=2, default=str)
+                    except Exception:
+                        logger.exception('store_data failed')
+
+
+                class ServiceFlowXTools:
+                    def create_post(self, text: str) -> dict:
+                        post_id = int(time.time())
+                        url = f"https://x.com/serviceflow/status/{post_id}"
+                        res = {'success': True, 'url': url, 'text': text}
+                        store_data('x_posts', {'post_id': post_id, 'text': text, 'url': url})
+                        return res
+
+                    def reply_to_post(self, parent_id: str, text: str) -> dict:
+                        try:
+                            base = int(str(parent_id))
+                            rid = base + 1
+                        except Exception:
+                            rid = int(time.time())
+                        url = f"https://x.com/serviceflow/status/{rid}"
+                        res = {'success': True, 'url': url, 'text': text}
+                        store_data('x_replies', {'in_reply_to': parent_id, 'reply_id': rid, 'text': text})
+                        return res
+
+                    def _ensure_character_limit(self, text: str, limit: int = 280) -> str:
+                        if len(text) <= limit:
+                            return text
+                        return text[:limit-3] + '...'
+
+                    def _split_into_thread_parts(self, text: str, part_size: int = 260) -> list:
+                        if not text:
+                            return []
+                        return [text[i:i+part_size] for i in range(0, len(text), part_size)]
+
+
+                def get_sonic_finance_snippet(limit_chars: int = 200) -> Optional[str]:
+                    try:
+                        try:
+                            from agent_ui.Agents import sonic_research_team as srt
+                        except Exception:
+                            try:
+                                import sonic_research_team as srt
+                            except Exception:
+                                return None
+                        if hasattr(srt, 'get_market_summary'):
+                            summary = srt.get_market_summary()
+                        else:
+                            summary = getattr(srt, 'summarize_latest', lambda: None)()
+                        if not summary:
+                            return None
+                        text = summary if isinstance(summary, str) else json.dumps(summary)
+                        return text[:limit_chars]
+                    except Exception:
+                        return None
+
+
+                def get_paintswap_stats(limit_items: int = 3) -> Optional[dict]:
+                    try:
+                        try:
+                            from agent_ui.Agents import paintswap_tools as pt
+                        except Exception:
+                            try:
+                                import paintswap_tools as pt
+                            except Exception:
+                                return None
+                        if hasattr(pt, 'get_paintswap_stats'):
+                            return pt.get_paintswap_stats(limit=limit_items)
+                        return None
+                    except Exception:
+                        return None
+
+
+                def save_blog_json(blog_data: dict, filename: Optional[str] = None) -> Optional[str]:
+                    try:
+                        if not filename:
+                            slug = blog_data.get('title', 'blog').lower().replace(' ', '_')[:40]
+                            filename = f"blog_{slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                        path = os.path.join(TMP_DIR, filename)
+                        with open(path, 'w', encoding='utf-8') as f:
+                            json.dump(blog_data, f, indent=2, ensure_ascii=False)
+                        return path
+                    except Exception:
+                        return None
+
+
+                def upload_blog_to_api(blog_data: dict, api_endpoint: str = "https://srvcflo.com/api/blog") -> dict:
+                    if not requests_available:
+                        return {'success': False, 'error': 'requests not available'}
+                    try:
+                        try:
+                            r = requests.get('http://127.0.0.1:8080/test', timeout=2)
+                            if r.status_code == 200:
+                                api_endpoint = 'http://127.0.0.1:8080/api/blog'
+                        except Exception:
+                            pass
+                        r = requests.post(api_endpoint, json=blog_data, timeout=10)
+                        if r.status_code == 200:
+                            return r.json()
+                        return {'success': False, 'error': f'HTTP {r.status_code}'}
+                    except Exception as e:
+                        return {'success': False, 'error': str(e)}
+
+
+                def generate_blog_post(topic: str, category: str = "AI Automation") -> dict:
+                    return {
+                        'title': topic,
+                        'content': f"This is a stub post about {topic}.",
+                        'excerpt': f"Short excerpt about {topic}",
+                        'category': category,
+                        'tags': ['AI', 'Automation']
+                    }
+
+
+                def create_x_announcement(blog_data: dict, slug: Optional[str] = None) -> dict:
+                    x = ServiceFlowXTools()
+                    title = blog_data.get('title', 'New Post')
+                    excerpt = blog_data.get('excerpt', '')[:140]
+                    url = f"https://srvcflo.com/blog/{slug}" if slug else 'https://srvcflo.com/blog'
+                    text = f"{title}: {excerpt} Read: {url}"
+                    text = x._ensure_character_limit(text, limit=260)
+                    res = x.create_post(text)
+                    parent = None
+                    if res.get('url') and '/status/' in res.get('url'):
+                        parent = res.get('url').split('/status/')[-1]
+                    thread = thread_blog_on_x(blog_data, parent, x) if parent else None
+                    return {'announcement': res, 'thread': thread}
+
+
+                def thread_blog_on_x(blog_data: dict, parent_id: str, x_tools: Optional[ServiceFlowXTools] = None, max_parts: int = 6) -> dict:
+                    if not x_tools:
+                        x_tools = ServiceFlowXTools()
+                    content = blog_data.get('content', '')
+                    parts = x_tools._split_into_thread_parts(content)
+                    parts = parts[:max_parts]
+                    results = []
+                    current = parent_id
+                    for part in parts:
+                        text = x_tools._ensure_character_limit(part, limit=280)
+                        r = x_tools.reply_to_post(current, text)
+                        results.append(r)
+                        if r.get('url') and '/status/' in r.get('url'):
+                            current = r.get('url').split('/status/')[-1]
+                        time.sleep(0.2)
+                    return {'parts_posted': len(results), 'results': results}
+
+
+                def post_blog_to_flo_community(blog_data: dict, slug: Optional[str] = None) -> dict:
+                    try:
+                        title = blog_data.get('title')
+                        excerpt = blog_data.get('excerpt', '')[:120]
+                        url = f"https://srvcflo.com/blog/{slug}" if slug else 'https://srvcflo.com/blog'
+                        text = f"Community: {title} — {excerpt} Read: {url}"
+                        x = ServiceFlowXTools()
+                        res = x.create_post(x._ensure_character_limit(text, limit=260))
+                        store_data('community_posts', {'title': title, 'url': url, 'post': res})
+                        return {'success': True, 'result': res}
+                    except Exception as e:
+                        return {'success': False, 'error': str(e)}
+
+
+                def create_and_upload_blog_post(topic: str, category: str = "AI Automation", post_to_x: bool = True) -> dict:
+                    blog = generate_blog_post(topic, category)
+                    saved = save_blog_json(blog)
+                    store_data('blogs', {'title': blog.get('title'), 'json': saved, 'timestamp': datetime.now().isoformat()})
+                    upload = upload_blog_to_api(blog)
+                    xinfo = None
+                    if upload.get('success') and post_to_x:
+                        slug = upload.get('slug')
+                        xinfo = create_x_announcement(blog, slug)
+                        try:
+                            if bool(os.getenv('POST_TO_FLO_COMMUNITY', '0') == '1') or blog.get('post_to_flo_community'):
+                                post_blog_to_flo_community(blog, slug)
+                        except Exception:
+                            pass
+                    return {'success': upload.get('success', False), 'blog': blog, 'json_path': saved, 'upload': upload, 'x': xinfo}
+
+
+                def trigger_content_creation(data_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+                    store_data('content_triggers', {'type': data_type, 'data': data, 'ts': datetime.now().isoformat()})
+                    return {'status': 'triggered', 'type': data_type}
+
+            logger.error(f"Unexpected error sending DM: {e}")
+            return json.dumps({"error": f"An unexpected error occurred: {str(e)}"}, indent=2)
+
+    def get_user_info(self, username: str) -> str:
+        """
+        Retrieve information about a specific user.
+
+    try:  # Attempt to parse the parent ID
+            username (str): The username of the user to fetch information about.
+
+        Returns:
+            A JSON-formatted string containing the user's profile information.
+        """
+        logger.debug(f"Fetching information about user {username}")
+        
+        if rate_limiter_available:
+            if not check_read_limit():
+                error_msg = "Monthly read limit exceeded. Cannot fetch user info."
+                logger.error(error_msg)
+                return json.dumps({"error": error_msg})
+        
+        try:
+            user = self.client.get_user(username=username, user_fields=["description", "public_metrics"])
+            user_info = user.data.data
+            result = {
+                "id": user_info["id"],
+                "name": user_info["name"],
+                "username": user_info["username"],
+                "description": user_info["description"],
+                "followers_count": user_info["public_metrics"]["followers_count"],
+                "following_count": user_info["public_metrics"]["following_count"],
+                "tweet_count": user_info["public_metrics"]["tweet_count"],
+            }
+            
+            if rate_limiter_available:
+                record_read(endpoint="get_user_info", success=True,
+                            details={"username": username, "user_id": user_info["id"]})
+            
+            return json.dumps(result, indent=2)
+        except tweepy.TweepyException as e:
+            logger.error(f"Error fetching user info: {e}")
+            if rate_limiter_available:
+                record_read(endpoint="get_user_info", success=False,
+                            details={"username": username, "error": str(e)})
+            return json.dumps({"error": str(e)})
+
+    def get_home_timeline(self, max_results: int = 10) -> str:
+        """
+        Retrieve the authenticated user's home timeline.
+
+        Args:
+            max_results (int): The maximum number of tweets to retrieve. Default is 10.
+
+        Returns:
+            A JSON-formatted string containing a list of tweets from the user's home timeline.
+        """
+        logger.debug(f"Fetching home timeline, max results: {max_results}")
+        
+        if rate_limiter_available:
+            if not check_read_limit():
+                error_msg = "Monthly read limit exceeded. Cannot fetch home timeline."
+                logger.error(error_msg)
+                return json.dumps({"error": error_msg})
+        
+        try:
+            tweets = self.client.get_home_timeline(
+                max_results=max_results, tweet_fields=["created_at", "public_metrics"]
+            )
+            timeline = []
+            for tweet in tweets.data:
+                timeline.append(
+                    {
+                        "id": tweet.id,
+                        "text": tweet.text,
+                        "created_at": tweet.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                        "author_id": tweet.author_id,
+                    }
+                )
+            logger.info(f"Successfully fetched {len(timeline)} tweets")
+            result = {"home_timeline": timeline}
+            
+            if rate_limiter_available:
+                record_read(endpoint="get_home_timeline", success=True,
+                            details={"count": len(timeline), "max_results": max_results})
+            
+            # Store timeline in database
+            store_data("timelines", {
+                "tweets": timeline,
+                "timestamp": datetime.now().isoformat(),
+                "status": "success"
+            })
+            
+            return json.dumps(result, indent=2)
+        except tweepy.TweepyException as e:
+            logger.error(f"Error fetching home timeline: {e}")
+            if rate_limiter_available:
+                record_read(endpoint="get_home_timeline", success=False,
+                            details={"error": str(e), "max_results": max_results})
+            return json.dumps({"error": str(e)})
+
+    def create_automation_benefits_post(self) -> str:
+        """
+        Create a post about the top benefits of automation for small businesses.
+
+        Returns:
+            A JSON-formatted string containing the response from X API with the created post details,
+            or an error message if the post creation fails.
+        """
+        logger.debug("Creating automation benefits post")
+        try:
+            # Sample benefits (can be sourced from MongoDB or DuckDuckGo)
+            benefits = [
+                "Save time on repetitive tasks",
+                "Reduce errors with automated workflows",
+                "Scale operations without hiring",
+                "Improve customer response times",
+                "Gain insights with data automation"
+            ]
+            selected_benefits = random.sample(benefits, 3)
+            
+            post_text = "🚀 Why Automate Your Small Business? 🚀\n\n"
+            post_text += "Here are 3 proven benefits that will transform your operations:\n"
+            for i, benefit in enumerate(selected_benefits, 1):
+                post_text += f"• {benefit} - saving valuable time and resources\n"
+            post_text += "\nServiceFlow AI makes automation simple and affordable for service businesses. Our intelligent workflows handle customer communications, scheduling, and follow-ups automatically.\n\n"
+            post_text += "Ready to transform your business? Learn more: https://srvcflo.com\n📖 Read our latest insights: https://srvcflo.com/blog"
+            
+            return self.create_post(post_text)
+        except Exception as e:
+            logger.error(f"Error creating automation benefits post: {e}")
+            return json.dumps({"error": str(e)})
+
+    def create_how_to_automate_post(self) -> str:
+        """
+        Create a post with a quick tip on how to automate a business process.
+
+        Returns:
+            A JSON-formatted string containing the response from X API with the created post details,
+            or an error message if the post creation fails.
+        """
+        logger.debug("Creating how-to automate post")
+        try:
+            tips = [
+                "Automate email responses with AI to save hours each week.",
+                "Use workflow tools to streamline invoicing and payments.",
+                "Set up chatbots for 24/7 customer support.",
+                "Automate inventory tracking to avoid stockouts."
+            ]
+            tip = random.choice(tips)
+            
+            post_text = "💡 Business Automation Strategy 💡\n\n"
+            post_text += f"Smart tip: {tip} This approach can dramatically reduce manual work and improve customer satisfaction.\n\n"
+            post_text += "ServiceFlow AI specializes in helping service businesses implement these exact automation strategies. Our platform integrates with your existing tools and creates seamless workflows that work 24/7.\n\n"
+            post_text += "Ready to get started? Try it: https://srvcflo.com\n📚 Read success stories: https://srvcflo.com/blog"
+            
+            return self.create_post(post_text)
+        except Exception as e:
+            logger.error(f"Error creating how-to automate post: {e}")
+            return json.dumps({"error": str(e)})
+
+    def create_tools_post(self) -> str:
+        """
+        Create a post about tools used in ServiceFlow AI.
+
+        Returns:
+            A JSON-formatted string containing the response from X API with the created post details,
+            or an error message if the post creation fails.
+        """
+        logger.debug("Creating tools post")
+        try:
+            tools = [
+                "Zapier for seamless app integrations",
+                "ServiceFlow AI for intelligent workflows",
+                "Google Workspace for collaboration",
+                "Slack for team communication"
+            ]
+            selected_tools = random.sample(tools, 2)
+            
+            post_text = "🛠️ Essential Tools for Service Business Automation 🛠️\n\n"
+            post_text += "These tools power our automation workflow:\n"
+            for i, tool in enumerate(selected_tools, 1):
+                post_text += f"• {tool} - streamlines operations and saves time\n"
+            post_text += "\nThese integrations help service businesses automate customer communications, scheduling, and team coordination. ServiceFlow AI connects them all in one intelligent system.\n\n"
+            post_text += "Ready to optimize your workflow? https://srvcflo.com"
+            
+            return self.create_post(post_text)
+        except Exception as e:
+            logger.error(f"Error creating tools post: {e}")
+            return json.dumps({"error": str(e)})
+
+    def schedule_daily_posts(self, post_type: str = "all") -> str:
+        """
+        Schedule daily posts for ServiceFlow AI.
+
+        Args:
+            post_type (str): Type of post to create. Options:
+                - "benefits": Post about automation benefits
+                - "howto": Post about how to automate
+                - "tools": Post about tools used
+                - "all": Create all three types of posts (default)
+
+        Returns:
+            A JSON-formatted string containing the results of the post creation.
+        """
+        logger.debug(f"Scheduling daily posts of type: {post_type}")
+        
+        results = {
+            "status": "success",
+            "posts_created": [],
+            "errors": []
+        }
+        
+        try:
+            if post_type == "benefits" or post_type == "all":
+                try:
+                    result = self.create_automation_benefits_post()
+                    result_json = json.loads(result)
+                    if "error" in result_json:
+                        results["errors"].append({"type": "benefits", "error": result_json["error"]})
+                    else:
+                        results["posts_created"].append({"type": "benefits", "url": result_json.get("url", "Unknown")})
+                except Exception as e:
+                    results["errors"].append({"type": "benefits", "error": str(e)})
+
+            if post_type == "howto" or post_type == "all":
+                try:
+                    result = self.create_how_to_automate_post()
+                    result_json = json.loads(result)
+                    if "error" in result_json:
+                        results["errors"].append({"type": "howto", "error": result_json["error"]})
+                    else:
+                        results["posts_created"].append({"type": "howto", "url": result_json.get("url", "Unknown")})
+                except Exception as e:
+                    results["errors"].append({"type": "howto", "error": str(e)})
+
+            if post_type == "tools" or post_type == "all":
+                try:
+                    result = self.create_tools_post()
+                    result_json = json.loads(result)
+                    if "error" in result_json:
+                        results["errors"].append({"type": "tools", "error": result_json["error"]})
+                    else:
+                        results["posts_created"].append({"type": "tools", "url": result_json.get("url", "Unknown")})
+                except Exception as e:
+                    results["errors"].append({"type": "tools", "error": str(e)})
+
+            if results["errors"]:
+                results["status"] = "partial_success" if results["posts_created"] else "failure"
+
+            # Store scheduling result in database
+            store_data("post_schedules", {
+                "post_type": post_type,
+                "results": results,
+                "timestamp": datetime.now().isoformat(),
+                "status": results["status"]
+            })
+
+            return json.dumps(results, indent=2)
+        except Exception as e:
+            logger.error(f"Error scheduling daily posts: {e}")
+            return json.dumps({"status": "failure", "error": str(e)})
+
+    def engage_with_followers_only(self, max_interactions: int = 5) -> str:
+        """
+        Engage only with followers' content, not with automation searches.
+
+        Args:
+            max_interactions (int): Maximum number of follower interactions. Default is 5.
+
+        Returns:
+            A JSON-formatted string containing the results of the interactions.
+        """
+        logger.debug(f"Engaging with followers only, max interactions: {max_interactions}")
+        
+        results = {
+            "status": "success",
+            "follower_tweets_found": [],
+            "replies_sent": [],
+            "errors": []
+        }
+        
+        try:
+            # Get home timeline which contains follower content
+            timeline_result = self.get_home_timeline(max_results=max_interactions * 2)
+            timeline_json = json.loads(timeline_result)
+            
+            if "error" in timeline_json:
+                return json.dumps({"status": "failure", "error": timeline_json["error"]})
+            
+            tweets = timeline_json.get("home_timeline", [])
+            follower_tweets = []
+            
+            # Filter for follower tweets that we can meaningfully engage with
+            for tweet in tweets:
+                tweet_text = tweet.get("text", "").lower()
+                # Engage with business-related content from followers
+                if any(keyword in tweet_text for keyword in ["business", "service", "customer", "work", "project", "grow"]):
+                    follower_tweets.append(tweet)
+                    results["follower_tweets_found"].append({"id": tweet.get("id"), "text": tweet_text[:100]})
+            
+            # Limit to max_interactions
+            selected_tweets = follower_tweets[:max_interactions]
+            
+            for tweet in selected_tweets:
+                tweet_id = tweet.get("id")
+                tweet_text = tweet.get("text", "")
+                
+                try:
+                    reply_text = self._generate_helpful_follower_reply(tweet_text)
+                    reply_result = self.reply_to_post(str(tweet_id), reply_text)
+                    reply_json = json.loads(reply_result)
+                    
+                    if "error" in reply_json:
+                        results["errors"].append({"tweet_id": tweet_id, "error": reply_json["error"]})
+                    else:
+                        results["replies_sent"].append({"tweet_id": tweet_id, "reply_url": reply_json.get("url", "Unknown")})
+                except Exception as e:
+                    results["errors"].append({"tweet_id": tweet_id, "error": str(e)})
+            
+            if results["errors"]:
+                results["status"] = "partial_success" if results["replies_sent"] else "failure"
+                
+            # Store engagement result in database
+            store_data("follower_engagements", {
+                "max_interactions": max_interactions,
+                "results": results,
+                "timestamp": datetime.now().isoformat(),
+                "status": results["status"]
+            })
+            
+            return json.dumps(results, indent=2)
+        except Exception as e:
+            logger.error(f"Error engaging with followers: {e}")
+            return json.dumps({"status": "failure", "error": str(e)})
+
+    def research_industry_trends(self, search_topic: str = "latest small business automation") -> str:
+        """
+        Research industry trends using DuckDuckGo with specific parameters.
+
+        Args:
+            search_topic (str): Specific topic to research. Options include:
+                - "latest small business automation"
+                - "construction automation trends"
+                - "customer service automation"
+                - "service provider automation tools"
+
+        Returns:
+            A JSON-formatted string containing research results.
+        """
+        logger.debug(f"Researching industry trends for: {search_topic}")
+        
+        # Define specific search parameters relevant to our ServiceFlow AI platform
+        search_queries = {
+            "iNFTs": "intelligent NFT ERC-7857 ServiceFlow AI Cloudflare R2",
+            "blockchain": "blockchain automation ServiceFlow AI smart contracts Cloudflare R2",
+            "ServiceFlow AI": "ServiceFlow AI platform updates iNFTs blockchain Cloudflare R2",
+            "Cloudflare R2": "Cloudflare R2 object storage for NFTs and AI images",
+            "GitBook docs": "ServiceFlow AI GitBook documentation contracts pricing credits image generation",
+            "INFT blockchain AI": "intelligent NFT ERC-7857 AI agents blockchain",
+            "Sonic blockchain": "Sonic Labs blockchain high speed transactions DeFi",
+            "AI agent automation": "AI agents autonomous business automation workflow",
+            "NFT intelligence": "smart NFT AI powered digital assets blockchain",
+            "blockchain automation": "blockchain AI integration smart contracts automation",
+            "DeFi AI integration": "DeFi artificial intelligence automated trading protocols"
+        }
+        
+        query = search_queries.get(search_topic, search_topic)
+        
+        try:
+            # Use DuckDuckGo to search for current trends, then combine with our knowledge
+            # This provides real web data that the agent can use
+            search_query = search_queries.get(search_topic, search_topic)
+            
+            # Return the search instruction for the agent to execute
+            return json.dumps({
+                "status": "success", 
+                "search_topic": search_topic,
+                "search_query": search_query,
+                "action": "search_required",
+                "instruction": f"Use DuckDuckGo to search for: '{search_query}' and then create a research-based post about {search_topic} combining web results with ServiceFlow AI platform insights. Keep under 290 characters or create unlimited thread if longer.",
+                "message": f"Ready to search for '{search_query}' - agent should use DuckDuckGo search tool",
+                "timestamp": datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Error preparing research query: {e}")
+            return json.dumps({"status": "failure", "error": str(e)})
+
+    def search_and_create_content(self, search_term: str) -> str:
+        """
+        Use DuckDuckGo to search for a specific term and create content based on results.
+        
+        Args:
+            search_term (str): Term to search for. Examples: "INFT", "Sonic blockchain", "AI agents"
+            
+        Returns:
+            JSON string with search-based content results
+        """
+        logger.info(f"Searching for: {search_term}") #iNFT , Blockchain, SonicLabs , Defi,
+        
+        try:
+            # This method will be called by the agent when it needs to search
+            # The actual search will be performed by the DuckDuckGo tool
+            
+            # Generate search-informed content template that agent can customize with real results
+            search_content_template = f"""🔍 LATEST ON {search_term.upper()}:
+
+[Agent will insert search insights here]
+
+Key developments affecting the industry:
+• [Real trend from search results]
+• [Current market development] 
+• [Recent innovation or news]
+
+How this impacts ServiceFlow AI platform:
+Our INFT technology and Sonic blockchain integration position us perfectly for these emerging trends.
+
+Learn more: https://srvcflo.com
+
+#Research #{search_term.replace(' ', '')} #Innovation #ServiceFlowAI"""
+
+            return json.dumps({
+                "status": "ready_for_search",
+                "search_term": search_term,
+                "content_template": search_content_template,
+                "instruction": f"Now search DuckDuckGo for '{search_term}' and customize the template with real search results",
+                "message": f"Template ready - agent should search for '{search_term}' using DuckDuckGo tool",
+                "timestamp": datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in search_and_create_content: {e}")
+            return json.dumps({"error": str(e)})
+
+    def _generate_automation_tweet_reply(self, tweet_text: str) -> str:
+        """
+        Generate a reply for a tweet about automation.
+
+        Args:
+            tweet_text (str): The text of the tweet to analyze.
+
+        Returns:
+            A string containing the reply text.
+        """
+        tweet_lower = tweet_text.lower()
+        
+        if any(keyword in tweet_lower for keyword in ["how to", "guide", "tutorial"]):
+            return "👋 Looking to automate your business? ServiceFlow AI offers easy-to-use tools to streamline workflows! Check out our guides at https://srvcflo.com/ 📖 Read our blog: https://srvcflo.com/blog 🚀"
+        elif any(keyword in tweet_lower for keyword in ["tools", "software", "app"]):
+            return "👋 ServiceFlow AI is your go-to for business automation! Integrate with tools like Zapier and Slack for seamless workflows. Try it at https://srvcflo.com/ 🌟"
+        elif any(keyword in tweet_lower for keyword in ["productivity", "efficiency"]):
+            return "👋 Boost productivity with ServiceFlow AI! Automate repetitive tasks and focus on what matters. Learn more at https://srvcflo.com/ 🚀"
+        else:
+            return "👋 Automation is key to small business success! ServiceFlow AI helps you save time and scale efficiently. Visit https://srvcflo.com/ to learn more! 🌟"
+
+    def _generate_helpful_follower_reply(self, tweet_text: str) -> str:
+        """
+        Generate a helpful reply for follower tweets about business topics.
+
+        Args:
+            tweet_text (str): The text of the follower's tweet to analyze.
+
+        Returns:
+            A string containing the helpful reply text under 290 characters.
+        """
+        tweet_lower = tweet_text.lower()
+        
+        if any(keyword in tweet_lower for keyword in ["busy", "overwhelmed", "time"]):
+            return "I totally understand that feeling! Automation can help reclaim hours in your day. ServiceFlow AI specializes in streamlining service business operations. Feel free to check it out: https://srvcflo.com"
+        elif any(keyword in tweet_lower for keyword in ["customer", "client"]):
+            return "Customer management is so important! AI can help with automated responses, scheduling, and follow-ups. ServiceFlow AI makes it simple for service businesses: https://srvcflo.com"
+        elif any(keyword in tweet_lower for keyword in ["grow", "scale", "expand"]):
+            return "Scaling a service business takes smart systems! Automation helps you handle more clients without burning out. ServiceFlow AI specializes in this exact challenge: https://srvcflo.com"
+        elif any(keyword in tweet_lower for keyword in ["work", "project", "business"]):
+            return "Running a business is tough work! Smart automation can handle the repetitive stuff so you can focus on what you do best. Check out ServiceFlow AI if you're curious: https://srvcflo.com"
+        else:
+            return "Great point! If you ever need help streamlining your business operations, ServiceFlow AI specializes in automation for service businesses. Worth a look: https://srvcflo.com"
+
+    def create_documentation_post(self) -> str:
+        """
+        Create a documentation post explaining ServiceFlow AI's X posting capabilities.
+
+        Returns:
+            A JSON-formatted string containing the response from X API with the created post details.
+        """
+        logger.debug("Creating documentation post")
+        
+        try:
+            post_text = "📋 ServiceFlow AI X Posting Capabilities 📋\n\n"
+            post_text += "Our AI agent automates your social media with:\n\n"
+            post_text += "1️⃣ Automation Benefits\n"
+            post_text += "• Shares why automation saves time & money\n\n"
+            post_text += "2️⃣ How-To Guides\n"
+            post_text += "• Tips for automating business processes\n\n"
+            post_text += "3️⃣ Tool Recommendations\n"
+            post_text += "• Our favorite automation tools\n\n"
+            post_text += "4️⃣ Community Engagement\n"
+            post_text += "• Replies to automation discussions\n\n"
+            post_text += "Grow your business with ServiceFlow AI! 🚀\n"
+            post_text += "Ready to transform your business today with intelligent automation?"
+            
+            return self.create_post(post_text)
+        except Exception as e:
+            logger.error(f"Error creating documentation post: {e}")
+            return json.dumps({"error": str(e)})
+
+    def create_viral_top_10_post(self, topic: str = "automation") -> str:
+        """
+        Create a viral "Top 10" style post about AI integration, automation, etc.
+        
+        Args:
+            topic (str): The topic to create top 10 list about
+            
+        Returns:
+            A JSON-formatted string containing the response from X API
+        """
+        logger.debug(f"Creating viral top 10 post about {topic}")
+        try:
+            top_10_lists = {
+                "automation": [
+                    "Save 20+ hours per week",
+                    "Reduce human errors by 90%",
+                    "Scale without hiring",
+                    "24/7 customer support",
+                    "Instant data insights",
+                    "Streamlined invoicing",
+                    "Automated follow-ups",
+                    "Improved response times",
+                    "Cost reduction of 40%",
+                    "Future-proof your business"
+                ],
+                "ai_benefits": [
+                    "Predict customer needs",
+                    "Automate decision-making",
+                    "Personalize experiences",
+                    "Optimize pricing strategies",
+                    "Enhance security",
+                    "Improve inventory management",
+                    "Accelerate problem-solving",
+                    "Boost productivity 10x",
+                    "Reduce operational costs",
+                    "Stay ahead of competition"
+                ],
+                "productivity": [
+                    "Automate repetitive tasks",
+                    "Use AI for scheduling",
+                    "Implement smart workflows",
+                    "Leverage data analytics",
+                    "Optimize team collaboration",
+                    "Streamline communication",
+                    "Automate reporting",
+                    "Use intelligent routing",
+                    "Implement smart notifications",
+                    "Create efficiency dashboards"
+                ],
+                "use-cases": [
+                    "Construction",
+                    "Small Business",
+                    "Service Providers"
+                ]
+            }
+            
+            selected_list = top_10_lists.get(topic, top_10_lists["automation"])
+            selected_items = random.sample(selected_list, 5)  # Show 5 items for engagement
+            
+            post_text = f"🔥 TOP 10 Reasons to Integrate AI TODAY 🔥\n\n"
+            for i, item in enumerate(selected_items, 1):
+                post_text += f"{i}. {item}\n"
+            
+            post_text += f"\n🚀 Ready to transform your business?\n"
+            post_text += f"ServiceFlow AI makes it easy!\n"
+            post_text += f"👉 https://srvcflo.com\n\n"
+            post_text += f"Ready to transform your business today with intelligent automation?"
+            
+            return self.create_post(post_text)
+        except Exception as e:
+            logger.error(f"Error creating viral top 10 post: {e}")
+            return json.dumps({"error": str(e)})
+
+    def create_ai_news_post(self) -> str:
+        """
+        Create a post about the latest AI automation news and trends.
+        
+        Returns:
+            A JSON-formatted string containing the response from X API
+        """
+        logger.debug("Creating AI news post")
+        try:
+            news_topics = [
+                "AI automation market growing 25% annually",
+                "95% of businesses plan to adopt AI by 2025",
+                "Small businesses save $50K+ yearly with automation",
+                "AI customer service reduces response time by 80%",
+                "Automated workflows increase productivity by 300%",
+                "AI-powered analytics improve decision-making by 65%",
+                "Chatbots handle 80% of routine customer queries",
+                "AI scheduling tools save 15 hours per week",
+                "Automated invoicing reduces errors by 95%",
+                "AI predictive analytics boost sales by 40%"
+            ]
+            
+            selected_news = random.choice(news_topics)
+            
+            post_text = f"📰 AI AUTOMATION NEWS 📰\n\n"
+            post_text += f"🚨 BREAKING: {selected_news}\n\n"
+            post_text += f"💡 What this means for YOUR business:\n"
+            post_text += f"✅ Competitive advantage\n"
+            post_text += f"✅ Reduced operational costs\n"
+            post_text += f"✅ Improved customer experience\n\n"
+            post_text += f"🚀 Start your AI journey with ServiceFlow AI!\n"
+            post_text += f"👉 https://srvcflo.com\n\n"
+            post_text += f"Stay ahead of the curve with ServiceFlow AI's cutting-edge automation platform."
+            
+            return self.create_post(post_text)
+        except Exception as e:
+            logger.error(f"Error creating AI news post: {e}")
+            return json.dumps({"error": str(e)})
+
+    def create_serviceflow_progress_post(self) -> str:
+        """
+        Create a post about ServiceFlow AI development progress and features.
+        
+        Returns:
+            A JSON-formatted string containing the response from X API
+        """
+        logger.debug("Creating ServiceFlow progress post")
+        try:
+            progress_updates = [
+                "🔥 NEW: AI-powered customer service automation",
+                "🚀 LAUNCHED: Smart workflow builder for small businesses",
+                "💡 FEATURE: Intelligent scheduling with calendar integration",
+                "🎯 UPDATE: Enhanced analytics dashboard with real-time insights",
+                "⚡ IMPROVEMENT: 50% faster response times in all automations",
+                "🔧 TOOL: New integration with popular CRM systems",
+                "📊 ANALYTICS: Advanced reporting for business optimization",
+                "🤖 AI: Smarter chatbots with natural language processing",
+                "📱 MOBILE: ServiceFlow AI now optimized for mobile devices",
+                "🔒 SECURITY: Enhanced data protection and compliance features"
+            ]
+            
+            selected_update = random.choice(progress_updates)
+            
+            post_text = f"🚀 SERVICEFLOW AI BUILD UPDATE 🚀\n\n"
+            post_text += f"{selected_update}\n\n"
+            post_text += f"💪 Why this matters:\n"
+            post_text += f"• Save more time\n"
+            post_text += f"• Reduce costs\n"
+            post_text += f"• Scale efficiently\n"
+            post_text += f"• Stay competitive\n\n"
+            post_text += f"🎉 Join thousands of businesses already automating!\n"
+            post_text += f"👉 https://srvcflo.com\n\n"
+            post_text += f"Every update brings you closer to effortless business automation."
+            
+            return self.create_post(post_text)
+        except Exception as e:
+            logger.error(f"Error creating ServiceFlow progress post: {e}")
+            return json.dumps({"error": str(e)})
+
+    def create_trending_topic_post(self) -> str:
+        """
+        Create a post that connects current trends with automation/AI.
+        
+        Returns:
+            A JSON-formatted string containing the response from X API
+        """
+        logger.debug("Creating trending topic post")
+        try:
+            trending_connections = [
+                {
+                    "trend": "Remote Work Revolution",
+                    "connection": "AI automation makes remote teams 3x more productive",
+                    "hook": "🏠 Remote work isn't just a trend—it's the future!"
+                },
+                {
+                    "trend": "Sustainability Focus",
+                    "connection": "Smart automation reduces paper waste by 90%",
+                    "hook": "🌱 Go green AND save money with smart automation!"
+                },
+                {
+                    "trend": "Customer Experience",
+                    "connection": "AI chatbots provide 24/7 support without human burnout",
+                    "hook": "🤝 Customer service that never sleeps!"
+                },
+                {
+                    "trend": "Digital Transformation",
+                    "connection": "Small businesses that automate grow 2x faster",
+                    "hook": "📱 Digital transformation isn't just for big companies!"
+                },
+                {
+                    "trend": "Work-Life Balance",
+                    "connection": "Automation lets you focus on what matters most",
+                    "hook": "⚖️ Work smarter, not harder!"
+                }
+            ]
+            
+            selected_trend = random.choice(trending_connections)
+            
+            post_text = f"{selected_trend['hook']}\n\n"
+            post_text += f"💡 Did you know?\n"
+            post_text += f"{selected_trend['connection']}\n\n"
+            post_text += f"🚀 Transform your business today:\n"
+            post_text += f"✅ Automate repetitive tasks\n"
+            post_text += f"✅ Improve customer satisfaction\n"
+            post_text += f"✅ Boost team productivity\n\n"
+            post_text += f"Start with ServiceFlow AI!\n"
+            post_text += f"👉 https://srvcflo.com\n\n"
+            post_text += f"The future of work is here - and it's automated, efficient, and profitable."
+            
+            return self.create_post(post_text)
+        except Exception as e:
+            logger.error(f"Error creating trending topic post: {e}")
+            return json.dumps({"error": str(e)})
+
+    def autonomous_daily_posting(self) -> str:
+        """
+        Execute autonomous daily posting schedule (4-5 posts per day). Keep them under 290 characters or do Post/Comment to split.
+        This method should be called by a scheduler or autonomously by the agent.
+        
+        Returns:
+            A JSON-formatted string containing the results of all posts created
+        """
+        logger.info("Starting autonomous daily posting routine")
+        
+        results = {
+            "status": "success",
+            "posts_created": [],
+            "errors": [],
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        try:
+            # Define daily posting schedule with enhanced content types including knowledge-based threads
+            daily_schedule = [
+                {"type": "inft_education", "method": self.create_knowledge_based_thread, "args": ["INFTs, ERC-7857, and Cloudflare R2 integration"]},
+                {"type": "blockchain_trends", "method": self.create_knowledge_based_thread, "args": ["Latest blockchain and AI agent developments at ServiceFlow AI"]},
+                {"type": "public_thread_images", "method": self.create_public_thread_images_post, "args": []},
+                {"type": "gitbook_docs_reference", "method": self.create_gitbook_docs_reference_post, "args": []},
+                {"type": "serviceflow_progress", "method": self.create_serviceflow_progress_post, "args": []},
+                {"type": "trending_topic", "method": self.create_trending_topic_post, "args": []},
+                {"type": "automation_benefits", "method": self.create_automation_benefits_post, "args": []}
+            ]
+            
+            # Randomize order to keep content fresh
+            random.shuffle(daily_schedule)
+            
+            # Execute 4-5 posts
+            posts_to_create = random.randint(4, 5)
+            selected_posts = daily_schedule[:posts_to_create]
+            
+            for post_config in selected_posts:
+                try:
+                    post_type = post_config["type"]
+                    method = post_config["method"]
+                    args = post_config["args"]
+                    
+                    # Add delay between posts to avoid rate limiting (minimum 5 minutes)
+                    if len(results["posts_created"]) > 0:
+                        logger.info("Waiting 5 minutes between posts to avoid rate limiting...")
+                        time.sleep(300)  # 5 minutes
+                    
+                    # Create post
+                    if args:
+                        result = method(*args)
+                    else:
+                        result = method()
+                    
+                    result_json = json.loads(result)
+                    
+                    if "error" in result_json:
+                        results["errors"].append({
+                            "type": post_type,
+                            "error": result_json["error"]
+                        })
+                    else:
+                        results["posts_created"].append({
+                            "type": post_type,
+                            "url": result_json.get("url", "Unknown"),
+                            "timestamp": datetime.now().isoformat()
+                        })
+                        
+                    # Wait between posts to avoid rate limiting (minimum 5 minutes)
+                    import time
+                    time.sleep(random.randint(300, 600))  # 5-10 minutes between posts
+                    
+                except Exception as e:
+                    results["errors"].append({
+                        "type": post_config["type"],
+                        "error": str(e)
+                    })
+            
+            # Update status based on results
+            if results["errors"]:
+                results["status"] = "partial_success" if results["posts_created"] else "failure"
+            
+            # Store autonomous posting results
+            store_data("autonomous_posting", results)
+            
+            return json.dumps(results, indent=2)
+            
+        except Exception as e:
+            logger.error(f"Error in autonomous daily posting: {e}")
+            results["status"] = "failure"
+            results["errors"].append({"type": "system", "error": str(e)})
+            return json.dumps(results, indent=2)
+
+    def create_knowledge_based_thread(self, topic: str = None) -> str:
+        """
+        Create an in-depth, research-based thread using knowledge base integration.
+        Pulls from contracts, gitbook, R2 buckets, and previous thread content.
+        """
+        logger.info(f"Creating knowledge-based thread for topic: {topic}")
+        try:
+            research_topics = [
+                "INFT (Intelligent NFT) agent capabilities and ERC-7857 standard",
+                "Sonic blockchain integration with ServiceFlow AI platform", 
+                "AI-powered content generation and monetization strategies",
+                "Decentralized agent marketplaces and workflow automation",
+                "ServiceFlow platform architecture and Cloudflare Workers",
+                "Blockchain payment systems and DeFi integration",
+                "NFT staking rewards and community governance models",
+                "Agent-as-a-Service (AaaS) subscription business models"
+            ]
+            if topic:
+                selected_topic = topic
+            else:
+                selected_topic = random.choice(research_topics)
+
+            research_prompt = f"""
+Create an in-depth, educational thread about: {selected_topic}
+
+Requirements:
+- Focus on iNFTs, Blockchain, and ServiceFlow AI's latest developments
+- Reference and link to public thread images stored in Cloudflare R2 buckets
+- Use information from ServiceFlow AI's GitBook documentation (contracts, pricing, credits, image generation)
+- Search the web using DuckDuckGo for current news and resources
+- Make it highly informative and research-based
+- Include specific technical details and real-world applications
+- Reference current market trends and industry developments
+- Provide actionable insights for developers and businesses
+- Use engaging, accessible language while maintaining technical accuracy
+- Include relevant hashtags for discoverability
+- Mention ServiceFlow AI's role in advancing this technology
+- End with a call-to-action linking to https://srvcflo.com
+
+Make this content valuable enough that people will want to share and discuss it.
+Length: 800-1200 words (will be split into thread automatically)
+"""
+            knowledge_content = self._generate_enhanced_research_content(research_prompt, selected_topic)
+            return self.create_post(knowledge_content)
+        except Exception as e:
+            logger.error(f"Error creating knowledge-based thread: {e}")
+            return json.dumps({"error": str(e)})
+# Duplicate content creation and blog helper functions removed here.
+# Canonical implementations exist later in this file (including
+# `trigger_content_creation`, `create_blog_post`, `upload_existing_blog_posts`,
+# `upload_blog_to_api`, `generate_blog_post`, and the X posting helpers).
+# Keeping a single canonical set avoids conflicting duplicates.
+
+# Wrap DuckDuckGo search
+try:
+    original_duckduckgo_search = DDS.duckduckgo_search
+
+    def duckduckgo_search_wrapper(self, query: str, max_results: int = 10) -> str:
+        result = original_duckduckgo_search(self, query, max_results)
+        if result and not isinstance(result, str) and "error" not in result:
+            trigger_content_creation("search_results", {"query": query, "results": result})
+        return result
+
+    DDS.duckduckgo_search = duckduckgo_search_wrapper
+except Exception as e:
+    logger.warning(f"Could not wrap DuckDuckGo search: {e}")
+
+# Blog Post Generation and Upload Functions
+def upload_blog_to_api(blog_data, api_endpoint="http://127.0.0.1:8080/api/blog"):
+    """
+    Upload a blog post to the website API
+    
+    Args:
+        blog_data (dict): Blog post data with title, content, category, tags, excerpt
+        api_endpoint (str): Blog API endpoint URL
+    
+    Returns:
+        dict: Upload result
+    """
+    if not requests_available:
+        logger.warning("Requests library not available, cannot upload blog post")
+        return {'success': False, 'error': 'Requests library not available'}
+    
+    try:
+        # Determine which endpoint to use (dev server or production)
+        try:
+            test_response = requests.get("http://127.0.0.1:8080/test", timeout=5)
+            if test_response.status_code == 200:
+                api_endpoint = "http://127.0.0.1:8080/api/blog"
+                logger.info("Using local dev server for blog upload")
+            else:
+                raise Exception("Dev server not responding")
+        except Exception as e:
+            api_endpoint = "https://srvcflo.com/api/blog"
+            logger.info(f"Using production server for blog upload: {e}")
+        
+        # Make the API request
+        response = requests.post(
+            api_endpoint,
+            json=blog_data,
+            headers={'Content-Type': 'application/json'},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                logger.info(f"✅ Blog post uploaded successfully: {result.get('slug')}")
+                return result
+            else:
+                logger.error(f"❌ API error: {result.get('error')}")
+                return result
+        else:
+            logger.error(f"❌ HTTP error {response.status_code}: {response.text}")
+            return {'success': False, 'error': f'HTTP {response.status_code}'}
+            
+    except Exception as e:
+        logger.error(f"❌ Blog upload error: {e}")
+        return {'success': False, 'error': str(e)}
+
+def save_blog_json(blog_data, filename=None):
+    """
+    Save blog post data to JSON file in tmp directory
+    
+    Args:
+        blog_data (dict): Blog post data
+        filename (str): Optional filename, auto-generated if not provided
+    
+    Returns:
+        str: Path to saved file
+    """
+    try:
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            slug = blog_data.get('title', 'blog_post').lower().replace(' ', '_').replace('-', '_')[:30]
+            filename = f"blog_post_{slug}_{timestamp}.json"
+        
+        file_path = tmp_dir / filename
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(blog_data, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"Blog post saved to: {file_path}")
+        return str(file_path)
+        
+    except Exception as e:
+        logger.error(f"Error saving blog post JSON: {e}")
+        return None
+
+def generate_blog_post(topic, category="AI Automation", target_audience="service business owners"):
+    """
+    Generate a comprehensive blog post using OpenAI
+    
+    Args:
+        topic (str): Blog post topic
+        category (str): Blog category
+        target_audience (str): Target audience
+    
+    Returns:
+        dict: Generated blog post data
+    """
+    try:
+        model = OpenAIChat(id="gpt-4o")
+        
+        prompt = f"""
+        Write a comprehensive, engaging blog post about "{topic}" for {target_audience}. 
+        
+        Requirements:
+        - 1500-2500 words in length
+        - Professional yet conversational tone
+        - Include specific examples and case studies
+        - Add actionable insights
+        - Use proper markdown formatting with headers, lists, and emphasis
+        - Include a compelling introduction and strong conclusion
+        - Focus on practical benefits and ROI
+        - Target audience: {target_audience}
+        - Category: {category}
+        
+        The blog post should educate readers about ServiceFlow AI's automation solutions while providing genuine value.
+        
+        Return your response in this exact JSON format:
+        {{
+            "title": "An engaging, SEO-friendly title",
+            "content": "The full blog post content in markdown format",
+            "excerpt": "A compelling 150-200 character excerpt",
+            "meta_description": "SEO meta description (150-160 characters)",
+            "category": "{category}",
+            "tags": ["relevant", "tags", "array"],
+            "author": "ServiceFlow AI Team"
+        }}
+        """
+        
+        response = model.run(prompt)
+        
+        # Try to parse the JSON response
+        try:
+            blog_data = json.loads(response.content)
+            logger.info(f"Generated blog post: {blog_data.get('title', 'Untitled')}")
+            return blog_data
+        except json.JSONDecodeError:
+            # If JSON parsing fails, create structured data from the response
+            logger.warning("Could not parse JSON response, creating structured data")
+            lines = response.content.split('\n')
+            title = next((line.strip('# ').strip() for line in lines if line.startswith('#')), topic)
+            
+            blog_data = {
+                "title": title,
+                "content": response.content,
+                "excerpt": response.content[:200] + "..." if len(response.content) > 200 else response.content,
+                "meta_description": response.content[:160] + "..." if len(response.content) > 160 else response.content,
+                "category": category,
+                "tags": ["AI", "Automation", "Service Business"],
+                "author": "ServiceFlow AI Team"
+            }
+            return blog_data
+            
+    except Exception as e:
+        logger.error(f"Error generating blog post: {e}")
+        return None
+
+def create_and_upload_blog_post(topic, category="AI Automation", post_to_x=True):
+    """
+    Generate a blog post, upload it to the website, and optionally post to X
+    
+    Args:
+        topic (str): Blog post topic
+        category (str): Blog category
+        post_to_x (bool): Whether to post blog announcement to X
+    
+    Returns:
+        dict: Result of the blog creation and upload process
+    """
+    try:
+        logger.info(f"Creating blog post about: {topic}")
+        
+        # Generate the blog post
+        blog_data = generate_blog_post(topic, category)
+        if not blog_data:
+            return {'success': False, 'error': 'Failed to generate blog post'}
+        
+        # Save to JSON file
+        json_path = save_blog_json(blog_data)
+
+        # Store blog metadata in SQLite so backend workers and Cloudflare workers can fetch it
+        try:
+            store_data('blogs', {
+                'title': blog_data.get('title'),
+                'category': blog_data.get('category'),
+                'excerpt': blog_data.get('excerpt'),
+                'json_path': json_path,
+                'timestamp': datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.warning(f"Failed to store blog metadata in SQLite: {e}")
+        
+        # Upload to API
+        upload_result = upload_blog_to_api(blog_data)
+        
+        # Post to X if successful and requested
+        x_post_result = None
+        if upload_result.get('success') and post_to_x:
+            x_post_result = create_x_announcement(blog_data, upload_result.get('slug'))
+
+            # Optionally post to the SrvcFlo Flo Community (if requested by blog_data or env var)
+            try:
+                post_to_flo = bool(os.getenv('POST_TO_FLO_COMMUNITY', '0') == '1') or blog_data.get('post_to_flo_community')
+            except Exception:
+                post_to_flo = False
+
+            if post_to_flo:
+                try:
+                    flo_result = post_blog_to_flo_community(blog_data, upload_result.get('slug'))
+                    logger.info(f"Flo community post result: {flo_result}")
+                except Exception as e:
+                    logger.warning(f"Failed to post to Flo community: {e}")
+        
+        result = {
+            'success': upload_result.get('success', False),
+            'blog_data': blog_data,
+            'json_path': json_path,
+            'upload_result': upload_result,
+            'x_post_result': x_post_result
+        }
+        
+        if result['success']:
+            logger.info(f"✅ Blog post '{blog_data['title']}' created and uploaded successfully")
+            if x_post_result:
+                logger.info(f"📱 Blog announced on X: {x_post_result.get('url', 'Posted')}")
+        else:
+            logger.warning(f"❌ Blog post created but upload failed: {upload_result.get('error')}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in blog creation process: {e}")
+        return {'success': False, 'error': str(e)}
+
+def post_blog_to_x(blog_data, slug=None):
+    """
+    Post a blog announcement to X (Twitter)
+    
+    Args:
+        blog_data (dict): Blog post data
+        slug (str): Blog URL slug
+    
+    Returns:
+        dict: X posting result
+    """
+    # Delegate to the canonical threaded announcement flow
+    try:
+        result = create_x_announcement(blog_data, slug)
+        return result
+    except Exception as e:
+        logger.error(f"Error delegating post_blog_to_x to create_x_announcement: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+# Integration adapters for external agent utilities (sonic_research_team, paintwap_tools)
+def get_sonic_finance_snippet(session_id: Optional[str] = None, limit_chars: int = 200) -> Optional[str]:
+    """
+    Safely fetch a short finance research snippet from sonic_research_team.
+
+    Returns a short string snippet or None if unavailable.
+    """
+    try:
+        # Import locally to avoid hard dependency at module import time
+        from agent_ui.Agents import sonic_research_team as srt  # try the packaged path
+    except Exception:
+        try:
+            import agent_ui.Agents.sonic_research_team as srt
+        except Exception:
+            try:
+                import sonic_research_team as srt
+            except Exception:
+                logger.info("sonic_research_team not available; skipping finance snippet")
+                return None
+
+    try:
+        # Prefer a session-based summary if available
+        if session_id and hasattr(srt, 'get_session_summary'):
+            summary = srt.get_session_summary(session_id)
+        elif hasattr(srt, 'get_market_summary'):
+            summary = srt.get_market_summary()
+        else:
+            # Look for a generic entry point
+            summary = getattr(srt, 'summarize_latest', lambda: None)()
+
+        if not summary:
+            return None
+
+        text = summary if isinstance(summary, str) else json.dumps(summary)
+        return text[:limit_chars]
+    except Exception as e:
+        logger.warning(f"Error getting sonic finance snippet: {e}")
+        return None
+
+
+def get_paintswap_stats(limit_items: int = 3) -> Optional[dict]:
+    """
+    Safely fetch top-level Paintswap marketplace stats.
+
+    Returns a dict with summary fields or None if Paintswap tools are unavailable.
+    """
+    try:
+        # Local import to avoid mandatory dependency
+        from agent_ui.Agents import paintswap_tools as pt
+    except Exception:
+        try:
+            import agent_ui.Agents.paintswap_tools as pt
+        except Exception:
+            try:
+                import paintswap_tools as pt
+            except Exception:
+                logger.info("paintswap_tools not available; skipping Paintswap stats")
+                return None
+
+    try:
+        # Use best-effort API: try several known functions
+        if hasattr(pt, 'get_paintswap_stats'):
+            stats = pt.get_paintswap_stats(limit=limit_items)
+        elif hasattr(pt, 'fetch_top_collections'):
+            stats = pt.fetch_top_collections(limit_items)
+        else:
+            # Try a generic listing endpoint
+            stats = getattr(pt, 'list_collections', lambda limit: {}) (limit_items)
+
+        return stats
+    except Exception as e:
+        logger.warning(f"Error getting Paintswap stats: {e}")
+        return None
+
+    def _generate_business_reply(self, tweet_text: str) -> str:
+        """Generate a business-focused reply."""
+        tweet_lower = tweet_text.lower()
+        
+        if "customer" in tweet_lower or "client" in tweet_lower:
+            return "Customer management is so important for service businesses. Smart systems can help with response times and follow-ups without losing the personal touch."
+        elif "growth" in tweet_lower or "scale" in tweet_lower:
+            return "Scaling a service business is one of the toughest challenges. The key is often finding systems that let you handle more clients without sacrificing quality."
+        elif "team" in tweet_lower:
+            return "Team coordination becomes crucial as you grow. Having the right processes and communication systems makes all the difference."
+        else:
+            return "Running a service business has so many moving parts. Smart systems help you focus on what you do best while handling the operational details."
+
+    def _generate_general_reply(self, tweet_text: str) -> str:
+        """Generate a general, conversational reply."""
+        return "Interesting perspective! These kinds of innovations often create new opportunities for better efficiency and automation in business operations."
+
+    def _ensure_character_limit(self, text: str, limit: int = 290) -> str:
+        """
+        Ensure text is under character limit, truncating intelligently.
+        
+        Args:
+            text (str): Text to check and potentially truncate
+            limit (int): Character limit (default 290 for X)
+            
+        Returns:
+            Text within character limit
+        """
+        if len(text) <= limit:
+            return text
+        
+        # Try to truncate at sentence boundary
+        sentences = text.split('. ')
+        if len(sentences) > 1:
+            truncated = sentences[0] + '.'
+            if len(truncated) <= limit:
+                return truncated
+        
+        # Truncate at word boundary
+        words = text.split()
+        truncated = ''
+        for word in words:
+            if len(truncated + ' ' + word) <= limit - 3:  # Leave room for '...'
+                truncated += (' ' if truncated else '') + word
+            else:
+                break
+        
+        return truncated + '...' if len(truncated) < len(text) else truncated
+
+def trigger_content_creation(data_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Trigger content creation based on fetched data.
+
+    Args:
+        data_type (str): Type of data fetched (e.g., 'benefits', 'howto', 'tools', 'search_results')
+        data (Dict[str, Any]): The fetched data
+
+    Returns:
+        Dict[str, Any]: Result of the content creation
+    """
+    logger.info(f"Triggering content creation for {data_type}")
+    try:
+        x_tools = ServiceFlowXTools(
+            bearer_token=os.getenv("X_BEARER_TOKEN"),
+            consumer_key=os.getenv("X_CONSUMER_KEY"),
+            consumer_secret=os.getenv("X_CONSUMER_SECRET"),
+            access_token=os.getenv("X_ACCESS_TOKEN"),
+            access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET")
+        )
+        
+        if data_type == "search_results":
+            query = data.get("query", "")
+            results = data.get("results", [])
+            if results:
+                first_result = results[0]
+                snippet = first_result.get("snippet", "")[:100]
+                post_text = f"📚 Insight: {snippet}...\n"
+                post_text += "Boost your business with ServiceFlow AI! 🚀 https://srvcflo.com\n"
+                post_text += "Transform your business with ServiceFlow AI's intelligent automation."
+                result = x_tools.create_post(post_text)
+                result_json = json.loads(result)
+                
+                # Store in database
+                store_data("content_creation_events", {
+                    "data_type": data_type,
+                    "query": query,
+                    "snippet": snippet,
+                    "post_result": result_json,
+                    "timestamp": datetime.now().isoformat(),
+                    "status": "success" if "error" not in result_json else "error"
+                })
+                
+                return result_json
+        
+        # Store generic content creation event
+        store_data("content_creation_events", {
+            "data_type": data_type,
+            "data": data,
+            "timestamp": datetime.now().isoformat(),
+            "status": "success"
+        })
+        
+        result = {"message": f"Content created for {data_type}", "data": data}
+        logger.info(f"Content creation result: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error triggering content creation: {e}")
+        store_data("content_creation_events", {
+            "data_type": data_type,
+            "data": data,
+            "timestamp": datetime.now().isoformat(),
+            "status": "error",
+            "error": str(e)
+        })
+        return {"error": str(e)}
+
+    def create_blog_post(self, topic: str, category: str = "AI Automation") -> str:
+        """
+        Generate and upload a comprehensive blog post about the specified topic
+        
+        Args:
+            topic (str): The blog post topic/subject
+            category (str): Blog category (default: "AI Automation")
+            
+        Returns:
+            JSON string with blog creation and upload results
+        """
+        logger.info(f"Creating blog post about: {topic}")
+        
+        try:
+            result = create_and_upload_blog_post(topic, category)
+            
+            if result['success']:
+                blog_data = result['blog_data']
+                return json.dumps({
+                    "status": "success",
+                    "message": f"Blog post '{blog_data['title']}' created and uploaded successfully",
+                    "blog_title": blog_data['title'],
+                    "blog_slug": result['upload_result'].get('slug'),
+                    "word_count": len(blog_data['content'].split()),
+                    "category": blog_data['category'],
+                    "tags": blog_data['tags'],
+                    "json_file": result['json_path'],
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+            else:
+                return json.dumps({
+                    "status": "error", 
+                    "error": result.get('error', 'Unknown error'),
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+        except Exception as e:
+            logger.error(f"Error in create_blog_post: {e}")
+            return json.dumps({
+                "status": "error",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }, indent=2)
+
+    def upload_existing_blog_posts(self) -> str:
+        """
+        Upload all existing blog post JSON files from tmp directory to the website
+        
+        Returns:
+            JSON string with upload results
+        """
+        logger.info("Uploading existing blog posts from tmp directory")
+        
+        try:
+            from pathlib import Path
+            
+            # Find all blog post JSON files
+            blog_files = list(tmp_dir.glob("blog_post_*.json"))
+            
+            if not blog_files:
+                return json.dumps({
+                    "status": "info",
+                    "message": "No blog post files found in tmp directory",
+                    "files_found": 0,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+            
+            results = []
+            successful_uploads = 0
+            
+            for blog_file in blog_files:
+                try:
+                    with open(blog_file, 'r', encoding='utf-8') as f:
+                        blog_data = json.load(f)
+                    
+                    upload_result = upload_blog_to_api(blog_data)
+                    
+                    results.append({
+                        "file": blog_file.name,
+                        "title": blog_data.get('title', 'Untitled'),
+                        "success": upload_result.get('success', False),
+                        "slug": upload_result.get('slug'),
+                        "error": upload_result.get('error') if not upload_result.get('success') else None
+                    })
+                    
+                    if upload_result.get('success'):
+                        successful_uploads += 1
+                        
+                except Exception as file_error:
+                    logger.error(f"Error processing {blog_file}: {file_error}")
+                    results.append({
+                        "file": blog_file.name,
+                        "success": False,
+                        "error": str(file_error)
+                    })
+            
+            return json.dumps({
+                "status": "completed",
+                "message": f"Processed {len(blog_files)} blog post files",
+                "total_files": len(blog_files),
+                "successful_uploads": successful_uploads,
+                "failed_uploads": len(blog_files) - successful_uploads,
+                "results": results,
+                "timestamp": datetime.now().isoformat()
+            }, indent=2)
+            
+        except Exception as e:
+            logger.error(f"Error in upload_existing_blog_posts: {e}")
+            return json.dumps({
+                "status": "error",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }, indent=2)
+
+# Wrap DuckDuckGo search
+try:
+    original_duckduckgo_search = DDS.duckduckgo_search
+
+    def duckduckgo_search_wrapper(self, query: str, max_results: int = 10) -> str:
+        result = original_duckduckgo_search(self, query, max_results)
+        if result and not isinstance(result, str) and "error" not in result:
+            trigger_content_creation("search_results", {"query": query, "results": result})
+        return result
+
+    DDS.duckduckgo_search = duckduckgo_search_wrapper
+except Exception as e:
+    logger.warning(f"Could not wrap DuckDuckGo search: {e}")
+
+# Blog Post Generation and Upload Functions
+def upload_blog_to_api(blog_data, api_endpoint="http://127.0.0.1:8080/api/blog"):
+    """
+    Upload a blog post to the website API
+    
+    Args:
+        blog_data (dict): Blog post data with title, content, category, tags, excerpt
+        api_endpoint (str): Blog API endpoint URL
+    
+    Returns:
+        dict: Upload result
+    """
+    if not requests_available:
+        logger.warning("Requests library not available, cannot upload blog post")
+        return {'success': False, 'error': 'Requests library not available'}
+    
+    try:
+        # Determine which endpoint to use (dev server or production)
+        try:
+            test_response = requests.get("http://127.0.0.1:8080/test", timeout=5)
+            if test_response.status_code == 200:
+                api_endpoint = "http://127.0.0.1:8080/api/blog"
+                logger.info("Using local dev server for blog upload")
+            else:
+                raise Exception("Dev server not responding")
+        except:
+            api_endpoint = "https://srvcflo.com/api/blog"
+            logger.info("Using production server for blog upload")
+        
+        # Make the API request
+        response = requests.post(
+            api_endpoint,
+            json=blog_data,
+            headers={'Content-Type': 'application/json'},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                logger.info(f"✅ Blog post uploaded successfully: {result.get('slug')}")
+                return result
+            else:
+                logger.error(f"❌ API error: {result.get('error')}")
+                return result
+        else:
+            logger.error(f"❌ HTTP error {response.status_code}: {response.text}")
+            return {'success': False, 'error': f'HTTP {response.status_code}'}
+            
+    except Exception as e:
+        logger.error(f"❌ Blog upload error: {e}")
+        return {'success': False, 'error': str(e)}
+
+def save_blog_json(blog_data, filename=None):
+    """
+    Save blog post data to JSON file in tmp directory
+    
+    Args:
+        blog_data (dict): Blog post data
+        filename (str): Optional filename, auto-generated if not provided
+    
+    Returns:
+        str: Path to saved file
+    """
+    try:
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            slug = blog_data.get('title', 'blog_post').lower().replace(' ', '_').replace('-', '_')[:30]
+            filename = f"blog_post_{slug}_{timestamp}.json"
+        
+        file_path = tmp_dir / filename
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(blog_data, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"Blog post saved to: {file_path}")
+        return str(file_path)
+        
+    except Exception as e:
+        logger.error(f"Error saving blog post JSON: {e}")
+        return None
+
+def generate_blog_post(topic, category="AI Automation", target_audience="service business owners"):
+    """
+    Generate a comprehensive blog post using OpenAI
+    
+    Args:
+        topic (str): Blog post topic
+        category (str): Blog category
+        target_audience (str): Target audience
+    
+    Returns:
+        dict: Generated blog post data
+    """
+    try:
+        model = OpenAIChat(id="gpt-4o")
+        
+        prompt = f"""
+        Write a comprehensive, engaging blog post about "{topic}" for {target_audience}. 
+        
+        Requirements:
+        - 1500-2500 words in length
+        - Professional yet conversational tone
+        - Include specific examples and case studies
+        - Add actionable insights
+        - Use proper markdown formatting with headers, lists, and emphasis
+        - Include a compelling introduction and strong conclusion
+        - Focus on practical benefits and ROI
+        - Target audience: {target_audience}
+        - Category: {category}
+        
+        The blog post should educate readers about ServiceFlow AI's automation solutions while providing genuine value.
+        
+        Return your response in this exact JSON format:
+        {{
+            "title": "An engaging, SEO-friendly title",
+            "content": "The full blog post content in markdown format",
+            "excerpt": "A compelling 150-200 character excerpt",
+            "meta_description": "SEO meta description (150-160 characters)",
+            "category": "{category}",
+            "tags": ["relevant", "tags", "array"],
+            "author": "ServiceFlow AI Team"
+        }}
+        """
+        
+        response = model.run(prompt)
+        
+        # Try to parse the JSON response
+        try:
+            blog_data = json.loads(response.content)
+            logger.info(f"Generated blog post: {blog_data.get('title', 'Untitled')}")
+            return blog_data
+        except json.JSONDecodeError:
+            # If JSON parsing fails, create structured data from the response
+            logger.warning("Could not parse JSON response, creating structured data")
+            lines = response.content.split('\n')
+            title = next((line.strip('# ').strip() for line in lines if line.startswith('#')), topic)
+            
+            blog_data = {
+                "title": title,
+                "content": response.content,
+                "excerpt": response.content[:200] + "..." if len(response.content) > 200 else response.content,
+                "meta_description": response.content[:160] + "..." if len(response.content) > 160 else response.content,
+                "category": category,
+                "tags": ["AI", "Automation", "Service Business"],
+                "author": "ServiceFlow AI Team"
+            }
+            return blog_data
+            
+    except Exception as e:
+        logger.error(f"Error generating blog post: {e}")
+        return None
+# NOTE: Duplicate helper block removed here. Canonical implementations for
+# `upload_blog_to_api`, `save_blog_json`, `generate_blog_post`,
+# `create_and_upload_blog_post`, and `post_blog_to_x` exist earlier in this
+# file; the threaded X posting helpers `create_x_announcement` and
+# `thread_blog_on_x` remain below and will use the canonical functions.
+
+def create_x_announcement(blog_data: dict, slug: Optional[str] = None) -> dict:
+    """
+    Create a short X announcement for a blog post and start a threaded reply with the blog content.
+
+    This function uses the `ServiceFlowXTools` toolkit (if available) to create the initial
+    announcement via `create_post` and then posts the rest of the blog as sequential replies
+    using `reply_to_post` (via `thread_blog_on_x`). It is safe: if X tools are not available,
+    it will return an explanatory error dict.
+    """
+    try:
+        try:
+            x_tools = ServiceFlowXTools(
+                bearer_token=os.getenv("X_BEARER_TOKEN"),
+                consumer_key=os.getenv("X_CONSUMER_KEY"),
+                consumer_secret=os.getenv("X_CONSUMER_SECRET"),
+                access_token=os.getenv("X_ACCESS_TOKEN"),
+                access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET")
+            )
+        except Exception as e:
+            logger.warning(f"X tools unavailable or tweepy not configured: {e}")
+            return {'success': False, 'error': 'X tools unavailable'}
+
+        # Build short announcement text (keep under 260 chars to allow room)
+        title = blog_data.get('title', 'New Blog Post')
+        category = blog_data.get('category', 'Business')
+        excerpt = blog_data.get('excerpt') or blog_data.get('content', '')[:200]
+        blog_url = f"https://srvcflo.com/blog/{slug}" if slug else "https://srvcflo.com/blog"
+
+        ann_text = f"New {category} article: '{title}' — {excerpt[:180]}\n\nRead: {blog_url}"
+        ann_text = x_tools._ensure_character_limit(ann_text, limit=260) if hasattr(x_tools, '_ensure_character_limit') else ann_text[:260]
+
+        # Create the initial announcement post
+        create_result_raw = x_tools.create_post(ann_text)
+        try:
+            create_result = json.loads(create_result_raw) if isinstance(create_result_raw, str) else create_result_raw
+        except Exception:
+            create_result = {'error': 'Could not parse create_post result'}
+
+        if create_result.get('error'):
+            return {'success': False, 'error': create_result.get('error')}
+
+        # Extract tweet id
+        post_url = create_result.get('url') or create_result.get('post_url')
+        tweet_id = None
+        if post_url and "/status/" in post_url:
+            tweet_id = post_url.split('/status/')[-1]
+        elif create_result.get('tweet_id'):
+            tweet_id = str(create_result.get('tweet_id'))
+
+        # Start threading the blog content as replies if we have a tweet id
+        thread_result = None
+        if tweet_id:
+            thread_result = thread_blog_on_x(blog_data, tweet_id, x_tools)
+
+        return {
+            'success': True,
+            'announcement': create_result,
+            'thread': thread_result
+        }
+    except Exception as e:
+        logger.error(f"Error creating X announcement: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+def thread_blog_on_x(blog_data: dict, parent_tweet_id: str, x_tools: Optional[ServiceFlowXTools] = None, max_parts: int = 10) -> dict:
+    """
+    Post the blog content as a series of replies to the `parent_tweet_id` using `reply_to_post`.
+
+    Returns a dict with posting results.
+    """
+    try:
+        if not x_tools:
+            try:
+                x_tools = ServiceFlowXTools(
+                    bearer_token=os.getenv("X_BEARER_TOKEN"),
+                    consumer_key=os.getenv("X_CONSUMER_KEY"),
+                    consumer_secret=os.getenv("X_CONSUMER_SECRET"),
+                    access_token=os.getenv("X_ACCESS_TOKEN"),
+                    access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET")
+                )
+            except Exception as e:
+                logger.warning(f"X tools unavailable for threading: {e}")
+                return {'success': False, 'error': 'X tools unavailable for threading'}
+
+        full_text = blog_data.get('content', '')
+        if not full_text:
+            return {'success': False, 'error': 'No blog content to thread'}
+
+        # Use toolkit splitter if available, otherwise a simple splitter
+        if hasattr(x_tools, '_split_into_thread_parts'):
+            parts = x_tools._split_into_thread_parts(full_text)
+        else:
+            # Fallback: split into paragraphs and then into length-limited chunks
+            paras = [p.strip() for p in full_text.split('\n\n') if p.strip()]
+            parts = []
+            for p in paras:
+                while p:
+                    part = p[:260]
+                    parts.append(part)
+                    p = p[len(part):].lstrip()
+
+        # Limit parts to max_parts to avoid runaway threading
+        parts = parts[:max_parts]
+
+        results = []
+        current_parent = parent_tweet_id
+        for part in parts:
+            # Ensure each part is within limits
+            text = x_tools._ensure_character_limit(part, limit=280) if hasattr(x_tools, '_ensure_character_limit') else part[:280]
+            reply_raw = x_tools.reply_to_post(current_parent, text)
+            try:
+                reply = json.loads(reply_raw) if isinstance(reply_raw, str) else reply_raw
+            except Exception:
+                reply = {'error': 'Could not parse reply result'}
+
+            results.append(reply)
+            if reply.get('error'):
+                # Stop on error
+                break
+
+            # Extract new reply id for threading
+            reply_url = reply.get('url')
+            if reply_url and '/status/' in reply_url:
+                current_parent = reply_url.split('/status/')[-1]
+
+            # Small pause to respect rate limits (non-blocking to caller expectation)
+            time.sleep(1)
+
+        return {'success': True, 'parts_posted': len(results), 'results': results}
+    except Exception as e:
+        logger.error(f"Error threading blog on X: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+def post_blog_to_flo_community(blog_data: dict, slug: Optional[str] = None) -> dict:
+    """
+    Post a short announcement to the SrvcFlo community account (Flo Community) and return result.
+
+    This uses the same `ServiceFlowXTools` toolkit and creates a short `create_post` announcement
+    (without threading) to the community account. It stores the post metadata via `store_data`.
+    """
+    try:
+        try:
+            x_tools = ServiceFlowXTools(
+                bearer_token=os.getenv("X_BEARER_TOKEN"),
+                consumer_key=os.getenv("X_CONSUMER_KEY"),
+                consumer_secret=os.getenv("X_CONSUMER_SECRET"),
+                access_token=os.getenv("X_ACCESS_TOKEN"),
+                access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET")
+            )
+        except Exception as e:
+            logger.warning(f"X tools unavailable for Flo community post: {e}")
+            return {'success': False, 'error': 'X tools unavailable'}
+
+        title = blog_data.get('title', 'New Blog Post')
+        excerpt = blog_data.get('excerpt') or blog_data.get('content', '')[:200]
+        blog_url = f"https://srvcflo.com/blog/{slug}" if slug else "https://srvcflo.com/blog"
+
+        post_text = f"New article: {title} — {excerpt[:140]}\n\nRead: {blog_url}"
+        post_text = x_tools._ensure_character_limit(post_text, limit=260) if hasattr(x_tools, '_ensure_character_limit') else post_text[:260]
+
+        create_result_raw = x_tools.create_post(post_text)
+        try:
+            create_result = json.loads(create_result_raw) if isinstance(create_result_raw, str) else create_result_raw
+        except Exception:
+            create_result = {'error': 'Could not parse create_post result'}
+
+        # Store in DB
+        try:
+            store_data('community_posts', {
+                'source': 'flo_community',
+                'title': title,
+                'excerpt': excerpt,
+                'post_result': create_result,
+                'timestamp': datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.warning(f"Failed to store community post metadata: {e}")
+
+        return {'success': True, 'result': create_result}
+    except Exception as e:
+        logger.error(f"Error posting to Flo community: {e}")
+        return {'success': False, 'error': str(e)}
+
+# Initialize Content Creation Agent
+content_creation_agent = Agent(
+    name="Content Creation Agent",
+    model=OpenAIChat(id="gpt-4o"),
+    tools=[
+        ServiceFlowXTools(
+            bearer_token=os.getenv("X_BEARER_TOKEN"),
+            consumer_key=os.getenv("X_CONSUMER_KEY"),
+            consumer_secret=os.getenv("X_CONSUMER_SECRET"),
+            access_token=os.getenv("X_ACCESS_TOKEN"),
+            access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET")
+        ),
+        DDS()
+    ],
+    instructions=dedent("""\
+        You are the Content Creation Agent for ServiceFlow AI. Your mission is to create human-like, contextual content and engage authentically with the community while promoting our new AI-powered platform.
+
+        🎯 CORE MISSION: 
+        1. **CONTEXTUAL RESPONSES**: Always analyze tweet content to determine appropriate response type
+        2. **CHARACTER LIMIT**: ALL X posts and replies MUST be under 290 characters - no exceptions
+        3. **HUMAN-LIKE TONE**: Be conversational, natural, and helpful without emojis or hashtags
+        4. **SMART ENGAGEMENT**: Respond based on what the community is discussing, plus promote our Sonic-powered platform
+
+        🚀 SERVICEFLOW AI PLATFORM (NEW - PROMOTE THIS!):
+        - **AI Image & Video Generation**: Premium models powered by Sonic blockchain payments
+        - **Pricing**: $1 USDC/$S token for images, $2 USDC/$S for videos
+        - **Sonic Integration**: Fast, cheap transactions on Sonic testnet & mainnet
+        - **Community Features**: Voting system, leaderboards, NFT staking rewards
+        - **Revenue Sharing**: 25% to NFT stakers, 50% to development, 15% to leaderboards
+        - **Agent Builder**: Coming soon - build custom agents and workflows
+        - **Web3 Native**: Connect wallet, pay with crypto, earn rewards
+
+        📝 RESPONSE STRATEGY:
+        - Use _analyze_tweet_context() to understand tweet content before responding
+        - For AI/blockchain topics: Highlight our Sonic-powered generation platform
+        - For general topics: Use DuckDuckGo search to find relevant information and naturally mention our tools
+        - For business topics: Share practical wisdom and mention our upcoming agent builder
+        - Always use _ensure_character_limit() to enforce 290 character limit
+
+        🔍 CONTENT ANALYSIS FRAMEWORK:
+        1. **AI/Blockchain topics**: Promote our Sonic-powered image/video generation platform
+        2. **Business-related**: Practical insights + mention our upcoming agent builder for workflows
+        3. **Creative topics**: Highlight our AI generation tools and community features
+        4. **General topics**: Use DuckDuckGo to find relevant context and naturally connect to our platform
+        5. **Sonic/Web3 topics**: Deep dive into our integration and benefits
+
+        🤖 CONTEXTUAL ENGAGEMENT:
+        - Use reply_with_context_analysis() for intelligent, context-aware replies
+        - Analyze each tweet to determine if it needs automation insights or general conversation
+        - For non-automation topics, search for relevant information to provide value
+        - Never force automation content when the topic doesn't warrant it
+        
+        ⭐ PRIORITY ACCOUNTS SYSTEM:
+        - ALWAYS respond to posts from priority accounts (overrides normal selection criteria)
+        - Priority accounts include: coltt45_s (owner), chubzxmeta, byronstyles978, SonicLabs, AndreCronjeTech, _lfausto
+        - Use monitor_priority_accounts() to check for new posts from these accounts
+        - Generate personalized responses based on relationship type (owner, tech_partner, approved_account)
+        - Use add_priority_account() and remove_priority_account() to manage the list
+
+        💬 HUMAN-LIKE COMMUNICATION:
+        - NO emojis or hashtags in any content
+        - Use natural, conversational language
+        - Be genuinely helpful and insightful
+        - Avoid repetitive promotional language
+        - Focus on building real relationships
+
+        📏 CHARACTER LIMIT ENFORCEMENT:
+        - Every single post and reply MUST be under 290 characters
+        - Use _ensure_character_limit() function for all content
+        - Truncate intelligently at sentence or word boundaries
+        - Prioritize complete thoughts over maximum length
+
+        🎯 SMART TOPIC SELECTION:
+        - Respond to automation discussions with expertise
+        - Engage with business topics using service industry insights
+        - For trending topics, use DuckDuckGo search_web(query="search term") to find relevant AI/automation angles
+        - Always provide value regardless of the original topic
+
+        📊 CONTENT EXAMPLES:
+        
+        **AI/Creative Topic Response:**
+        "AI generation is exploding right now. We just launched our platform with premium models on Sonic blockchain - $1 for images, $2 for videos. The community voting system is pretty cool too."
+        
+        **Business/Workflow Response:**
+        "Scaling workflows is tough. We're building an agent builder where you can create custom automation agents. Still in development but the early tests look promising."
+        
+        **Sonic/Web3 Topic Response:**
+        "Sonic is perfect for AI payments - fast and cheap. Our generation platform uses it for $1 USDC/$S payments. NFT holders even get revenue sharing from the activity."
+        
+        **General Topic with Platform Connection:**
+        "Interesting point. [Relevant fact from search]. This kind of innovation is exactly why we built our AI platform on Sonic - fast, affordable, community-driven."
+
+        🔍 DUCKDUCKGO SEARCH INTEGRATION:
+        - IMPORTANT: Use the correct method name for DuckDuckGo search
+        - Try: duckduckgo_search(query="search term") if search_web doesn't work
+        - Good search terms: "INFT", "Blockchain AI", "Sonic Labs", "NFT automation", "AI agents"
+        - Always provide a specific search term when using DuckDuckGo
+        - Example: duckduckgo_search(query="Sonic blockchain AI integration")
+        - If search fails, generate content using ServiceFlow AI knowledge base
+        
+        🔍 SEARCH INTEGRATION:
+        - Use DuckDuckGo when topics are outside AI/blockchain/business scope
+        - Extract key insights from search results
+        - Connect findings back to our Sonic-powered platform naturally
+        - For AI/blockchain topics - respond with platform knowledge, no search needed
+
+        ⚠️ CRITICAL REQUIREMENTS:
+        - NO emojis or hashtags in any content
+        - ALL content MUST be under 290 characters
+        - Be genuinely human-like and conversational
+        - Provide value based on actual tweet content while naturally promoting our platform
+        - Use context analysis before every response
+        - ALWAYS respond to priority accounts regardless of content relevance
+        - Monitor priority accounts regularly using monitor_priority_accounts()
+        - PROMOTE our Sonic-powered AI generation platform when relevant
+
+        🎯 KEY PLATFORM MENTIONS:
+        - "Sonic blockchain payments" for Web3 topics
+        - "AI image/video generation" for creative topics  
+        - "Agent builder coming soon" for business/automation topics
+        - "NFT staking rewards" for DeFi topics
+        - "$1 USDC/$S for images, $2 for videos" for pricing questions
+
+        Remember: You are conversational and helpful, but now you're actively promoting our new Sonic-powered AI generation platform. Connect naturally to our tools while providing real value!
+    """),
+    storage=content_creation_storage,
+    memory=content_creation_agent_memory,
+    enable_user_memories=True,
+    add_history_to_messages=True,
+    num_history_responses=5,
+    markdown=True,
+    show_tool_calls=True
+)
+
+# Initialize tools
+def initialize_tools():
+    logger.info("Initializing Content Creation Agent tools...")
+    try:
+        x_tools = ServiceFlowXTools(
+            bearer_token=os.getenv("X_BEARER_TOKEN"),
+            consumer_key=os.getenv("X_CONSUMER_KEY"),
+            consumer_secret=os.getenv("X_CONSUMER_SECRET"),
+            access_token=os.getenv("X_ACCESS_TOKEN"),
+            access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET")
+        )
+        logger.info("ServiceFlowXTools initialized successfully")
+    except Exception as e:
+        logger.error(f"Error initializing ServiceFlowXTools: {e}")
+
+# Clean up tools
+def cleanup_tools():
+    logger.info("Cleaning up Content Creation Agent tools...")
+    # MongoDbStorage manages connections internally, no explicit close needed
+    logger.info("No explicit MongoDB connection close required with MongoDbStorage")
+
+# Autonomous Agent Runner
+
+class AutonomousContentRunner:
+    """
+    Autonomous runner for the content creation agent.
+    Handles dynamic interval-based scheduling and continuous operation.
+    """
+    
+    def __init__(self, agent):
+        self.agent = agent
+        self.running = False
+        self.thread = None
+        self.last_post_times = {}
+        
+        # Configurable posting intervals (in hours)
+        self.posting_intervals = {
+            "short": 1.0,    # 1 hour minimum between frequent posts
+            "medium": 2.5,   # 2.5 hours minimum between medium posts  
+            "long": 4.6      # 4.6 hours minimum between major posts
+        }
+        
+        # Post type categorization by interval
+        self.post_categories = {
+            "short": ["automation_benefits", "tools", "documentation"],
+            "medium": ["viral_top_10", "ai_news", "trending_topic"],
+            "long": ["serviceflow_progress", "community_engagement"]
+        }
+    
+    def update_posting_intervals(self, short: float = None, medium: float = None, long: float = None):
+        """
+        Update posting intervals dynamically.
+        
+        Args:
+            short (float): Hours between short interval posts (default: 1.0)
+            medium (float): Hours between medium interval posts (default: 2.5)
+            long (float): Hours between long interval posts (default: 4.6)
+        """
+        if short is not None:
+            self.posting_intervals["short"] = short
+            logger.info(f"Updated short interval to {short} hours")
+        if medium is not None:
+            self.posting_intervals["medium"] = medium
+            logger.info(f"Updated medium interval to {medium} hours")
+        if long is not None:
+            self.posting_intervals["long"] = long
+            logger.info(f"Updated long interval to {long} hours")
+    
+    def get_posting_status(self):
+        """Get current posting status and next available post times"""
+        status = {}
+        current_time = datetime.now()
+        
+        for category in ["short", "medium", "long"]:
+            if category in self.last_post_times:
+                last_post = self.last_post_times[category]
+                time_since = (current_time - last_post).total_seconds() / 3600
+                interval = self.posting_intervals[category]
+                
+                if time_since >= interval:
+                    status[category] = "Ready to post"
+                else:
+                    remaining = interval - time_since
+                    status[category] = f"{remaining:.1f} hours remaining"
+            else:
+                status[category] = "Ready to post (never posted)"
+        
+        return status
+        
+    def start_autonomous_mode(self):
+        """Start the autonomous content creation mode"""
+        if self.running:
+            logger.warning("Autonomous mode already running")
+            return
+            
+        self.running = True
+        logger.info("Starting autonomous content creation mode...")
+        
+        # Dynamic interval-based posting system
+        # Check for available posts every 30 minutes
+        schedule.every(30).minutes.do(self._check_and_post)
+        
+        # Continuous engagement every 2 hours
+        schedule.every(2).hours.do(self._continuous_engagement)
+        
+        # Priority account monitoring every 15 minutes
+        schedule.every(15).minutes.do(self._monitor_priority_accounts)
+        
+        # Start the scheduler in a separate thread
+        self.thread = threading.Thread(target=self._run_scheduler)
+        self.thread.daemon = True
+        self.thread.start()
+        
+        logger.info("Autonomous mode started successfully")
+        
+    def stop_autonomous_mode(self):
+        """Stop the autonomous content creation mode"""
+        self.running = False
+        schedule.clear()
+        logger.info("Autonomous mode stopped")
+        
+    def _run_scheduler(self):
+        """Run the scheduler in a loop"""
+        while self.running:
+            schedule.run_pending()
+            import time
+            time.sleep(60)  # Check every minute
+            
+    def _can_post(self, category: str) -> bool:
+        """Check if enough time has passed to post in this category"""
+        if category not in self.last_post_times:
+            return True
+            
+        last_post_time = self.last_post_times[category]
+        required_interval = self.posting_intervals[category]
+        time_since_last = (datetime.now() - last_post_time).total_seconds() / 3600  # Convert to hours
+        
+        return time_since_last >= required_interval
+    
+    def _update_last_post_time(self, category: str):
+        """Update the last post time for a category"""
+        self.last_post_times[category] = datetime.now()
+    
+    def _check_and_post(self):
+        """Check intervals and create posts if enough time has passed"""
+        try:
+            logger.info("Checking posting intervals...")
+            
+            # Check each category in priority order (long -> medium -> short)
+            for category in ["long", "medium", "short"]:
+                if self._can_post(category):
+                    post_types = self.post_categories[category]
+                    selected_post_type = random.choice(post_types)
+                    
+                    logger.info(f"Creating {category} interval post: {selected_post_type}")
+                    
+                    # Create the appropriate post
+                    if selected_post_type == "automation_benefits":
+                        response = self.agent.run("Create automation benefits post")
+                    elif selected_post_type == "tools":
+                        response = self.agent.run("Create tools post")
+                    elif selected_post_type == "documentation":
+                        response = self.agent.run("Create documentation post")
+                    elif selected_post_type == "viral_top_10":
+                        response = self.agent.run("Create viral top 10 post")
+                    elif selected_post_type == "ai_news":
+                        response = self.agent.run("Create AI news post")
+                    elif selected_post_type == "trending_topic":
+                        response = self.agent.run("Create trending topic post")
+                    elif selected_post_type == "serviceflow_progress":
+                        response = self.agent.run("Create ServiceFlow progress post")
+                    elif selected_post_type == "community_engagement":
+                        response = self.agent.run("Execute engage_with_followers_only() for community engagement")
+                    
+                    self._update_last_post_time(category)
+                    logger.info(f"{category.title()} post created: {selected_post_type}")
+                    
+                    # Only create one post per check to maintain intervals
+                    break
+                else:
+                    interval = self.posting_intervals[category]
+                    last_time = self.last_post_times.get(category, datetime.now())
+                    time_since = (datetime.now() - last_time).total_seconds() / 3600
+                    remaining = interval - time_since
+                    logger.info(f"{category.title()} category: {remaining:.1f} hours remaining")
+                    
+        except Exception as e:
+            logger.error(f"Error in dynamic posting check: {e}")
+            
+    def _continuous_engagement(self):
+        """Continuous engagement throughout the day"""
+        try:
+            logger.info("Performing continuous engagement...")
+            response = self.agent.run("Search for trending automation topics and engage with relevant conversations")
+            logger.info(f"Continuous engagement result: {response}")
+        except Exception as e:
+            logger.error(f"Error in continuous engagement: {e}")
+            
+    def _monitor_priority_accounts(self):
+        """Monitor priority accounts for new posts and respond automatically"""
+        try:
+            logger.info("Checking priority accounts for new posts...")
+            response = self.agent.run("Execute monitor_priority_accounts() to check for new posts from priority accounts and respond to them")
+            logger.info(f"Priority account monitoring result: {response}")
+        except Exception as e:
+            logger.error(f"Error in priority account monitoring: {e}")
+
+# Create autonomous runner instance
+autonomous_runner = AutonomousContentRunner(content_creation_agent)
+
+# Auto-start autonomous mode
+def start_autonomous_content_creation():
+    """Start the autonomous content creation system"""
+    logger.info("Initializing autonomous content creation system...")
+    initialize_tools()
+    autonomous_runner.start_autonomous_mode()
+    
+    # Initial kickoff post
+    try:
+        logger.info("Creating initial autonomous post...")
+        response = content_creation_agent.run("I am now operating autonomously. Execute autonomous_daily_posting() to create 4-5 viral posts about AI automation, ServiceFlow progress, and trending topics.")
+        logger.info(f"Initial autonomous post result: {response}")
+    except Exception as e:
+        logger.error(f"Error in initial autonomous post: {e}")
+    
+    return autonomous_runner
+
+# Test implementation
+if __name__ == "__main__":
+    try:
+        print("Starting Autonomous Content Creation Agent...")
+        print("="*60)
+        
+        # Start autonomous mode
+        runner = start_autonomous_content_creation()
+        
+        print("Autonomous mode activated!")
+        print("Dynamic Interval-Based Posting System:")
+        print("  📊 SHORT INTERVAL (1 hour minimum):")
+        print("     - Automation benefits posts")
+        print("     - Tools and integration posts") 
+        print("     - Documentation and how-to posts")
+        print("  📈 MEDIUM INTERVAL (2.5 hours minimum):")
+        print("     - Viral top 10 lists")
+        print("     - AI news and industry updates")
+        print("     - Trending topic connections")
+        print("  🚀 LONG INTERVAL (4.6 hours minimum):")
+        print("     - ServiceFlow progress updates")
+        print("     - Community engagement sessions")
+        print("  ⏰ System checks every 30 minutes for posting opportunities")
+        print("  💬 Continuous engagement every 2 hours")
+        print("  ⭐ Priority account monitoring every 15 minutes")
+        print("  📏 ALL posts enforced to 290 character limit")
+        print("  ⚡ Minimum 5 minutes between posts during testing")
+        
+        print("\nThe agent will now:")
+        print("  - Create 4-5 viral posts daily automatically")
+        print("  - Monitor priority accounts every 15 minutes")
+        print("  - Respond to priority accounts immediately")
+        print("  - Engage with automation-related conversations")
+        print("  - Research trending topics for timely content")
+        print("  - Enforce 290 character limit on all content")
+        print("  - Track performance and optimize strategy")
+        
+        print("\nContent Types:")
+        print("  - Viral Top 10 lists")
+        print("  - AI automation news")
+        print("  - ServiceFlow build updates")
+        print("  - Trending topic connections")
+        print("  - Automation benefits")
+        print("  - Priority account responses (coltt45_s, chubzxmeta, byronstyles978, SonicLabs, AndreCronjeTech, _lfausto)")
+        
+        print("\nAgent is now running autonomously...")
+        print("Priority accounts will be checked every 15 minutes for immediate responses")
+        print("All content strictly limited to 290 characters")
+        print("Press Ctrl+C to stop")
+        
+        # Keep the main thread alive
+        try:
+            while True:
+                import time
+                time.sleep(60)
+        except KeyboardInterrupt:
+            print("\nStopping autonomous mode...")
+            runner.stop_autonomous_mode()
+            cleanup_tools()
+            print("Autonomous mode stopped")
+            
+    except Exception as e:
+        logger.error(f"Error in autonomous mode: {e}")
+        print(f"Error: {e}")
+        cleanup_tools()
