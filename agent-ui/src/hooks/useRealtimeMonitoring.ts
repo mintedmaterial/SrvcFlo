@@ -234,10 +234,10 @@ class RealWebSocket implements WebSocketConnection {
 
 export function useRealtimeMonitoring(config: RealtimeMonitoringConfig = {}): UseRealtimeMonitoringReturn {
   const {
-    websocketUrl = 'ws://localhost:3001/ws',
+    websocketUrl = process.env.NEXT_PUBLIC_TRIGGER_DEV_WS_URL || 'wss://api.trigger.dev/ws',
     reconnectInterval = 5000,
     maxReconnectAttempts = 5,
-    enableMockData = true // Enable mock data by default for development
+    enableMockData = false // Use real Trigger.dev connections
   } = config;
 
   const [dashboardState, setDashboardState] = useState<MonitoringDashboardState | null>(null);
