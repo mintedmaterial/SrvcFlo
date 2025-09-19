@@ -15,7 +15,8 @@
       "Bash(npm install:*)",
       "WebFetch(domain:docs.gelato.cloud)",
       "Bash(python:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "additionalDirectories": [
