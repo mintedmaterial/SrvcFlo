@@ -1,0 +1,9 @@
+https://drpc.org/docs/sonic-api/blocksinfo/eth_getBlockByNumber
+https://drpc.org/docs/sonic-api/blocksinfo/eth_getBlockTransactionCountByHash
+https://drpc.org/docs/sonic-api/blocksinfo/eth_getBlockTransactionCountByNumber
+https://drpc.org/docs/sonic-api/blocksinfo/eth_blockNumber
+https://drpc.org/docs/sonic-api/blocksinfo/eth_getBlockByNumberfull
+https://drpc.org/docs/sonic-api/blocksinfo/eth_getBlockByHashfull
+https://drpc.org/docs/sonic-api/blocksinfo/eth_getBlockByHash
+https://drpc.org/docs/sonic-api/blocksinfo/eth_newBlockFilter
+https://drpc.org/docs/sonic-api/blocksinfo/eth_getBlockReceipts

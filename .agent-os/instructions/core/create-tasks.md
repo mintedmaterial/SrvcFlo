@@ -217,19 +217,69 @@ Use the file-creator subagent to create the file: .agent-os/tasks/[TASK_ID]/task
     - [SKILL_1]
     - [SKILL_2]
     - [SKILL_3]
+    - **Trigger.dev Workflow Design**: Multi-agent orchestration patterns
+    - **Agent Orchestration**: Agno framework integration
+    - **Real-time System Integration**: Progress tracking and monitoring
+    - **MCP Server Integration**: Shared tool access and optimization
 
     ### Required Tools
 
     - [TOOL_1]: [PURPOSE]
     - [TOOL_2]: [PURPOSE]
+    - **Trigger.dev SDK**: Workflow orchestration and monitoring
+    - **Python Extension**: Agno agent script execution
+    - **Shared MCP Access**: Real tool testing and integration
+    - **Real-time Hooks**: Progress tracking and UI updates
   </template>
   <agent_types>
     - Human Developer
     - AI Coding Agent
     - AI Documentation Agent
     - AI Testing Agent
+    - Trigger.dev Orchestrated Agent
+    - Multi-Agent Workflow
+    - MCP-Integrated Agent
     - Mixed Team
   </agent_types>
+</section>
+
+<section name="trigger_config">
+  <template>
+    ## Trigger.dev Configuration
+
+    **Workflow Type:** [Single Agent/Multi-Agent Pipeline/Scheduled Task]
+    **Queue Configuration:** [Queue name and concurrency limits]
+    **Machine Requirements:** [Preset: micro/small-1x/medium-1x/large-1x]
+    **Shared MCP Dependencies:** [Required MCP servers]
+    **Real-time Monitoring:** [Progress tracking requirements]
+
+    ### Agent Integration Points
+
+    - **Primary Agno Agent:** [Script path and Agno configuration]
+    - **Supporting Agents:** [Additional agents in workflow]
+    - **MCP Server Dependencies:** [Paintswap, DeFAI, CoinCodex, etc.]
+    - **Claude Sub-agent Testing:** [MCP validation requirements]
+
+    ### Workflow Requirements
+
+    - **Queue:** [QUEUE_NAME] with [CONCURRENCY_LIMIT] concurrent executions
+    - **Machine Preset:** [MICRO/SMALL-1X/MEDIUM-1X/LARGE-1X]
+    - **Retry Policy:** [MAX_ATTEMPTS] attempts with [BACKOFF_STRATEGY]
+    - **Real-time Tracking:** [PROGRESS_METADATA_REQUIREMENTS]
+  </template>
+  <workflow_types>
+    - Single Agent: Individual Agno agent execution
+    - Multi-Agent Pipeline: Sequential agent coordination
+    - Scheduled Task: Cron-based agent operations
+    - Real-time Workflow: User-triggered with live updates
+  </workflow_types>
+  <queue_configurations>
+    - content-queue: 5 concurrent for content generation
+    - social-queue: Rate-limited per platform (X: 300/3h, Discord: 50/10s)
+    - trading-queue: 1 concurrent for critical financial operations
+    - analysis-queue: 10 concurrent for market analysis
+    - payment-queue: 3 concurrent for blockchain transactions
+  </queue_configurations>
 </section>
 
 <section name="timeline">
@@ -395,6 +445,35 @@ Use the file-creator subagent to create the file: .agent-os/tasks/[TASK_ID]/vali
     - Metric: [PERFORMANCE_METRIC]
     - Target: [TARGET_VALUE]
     - Test Method: [TEST_METHOD]
+
+    ### Trigger.dev Integration Tests
+
+    **Scenario 1: Agent Workflow Execution**
+    - Given: [AGENT_TYPE] task triggered with [INPUT_DATA]
+    - When: Trigger.dev orchestrates [WORKFLOW_STEPS]
+    - Then: All agents execute successfully with real-time progress updates
+
+    **Scenario 2: Error Recovery and Retry**
+    - Given: [WORKFLOW_NAME] with [MCP_SERVER] temporarily unavailable
+    - When: Trigger.dev retry mechanism activates with exponential backoff
+    - Then: Task succeeds on retry with no data loss
+
+    **Scenario 3: Real-time Monitoring**
+    - Given: Multi-agent workflow in progress
+    - When: User views agent dashboard
+    - Then: Live progress, current step, and ETA displayed accurately
+
+    ### MCP Server Integration Tests
+
+    **Scenario 1: Shared MCP Access**
+    - Components: Claude sub-agents and Agno worker agents
+    - Test: Both access same MCP server (Paintswap, DeFAI, etc.)
+    - Success: Identical responses and optimal usage patterns
+
+    **Scenario 2: Concurrent MCP Operations**
+    - Metric: Simultaneous MCP server requests
+    - Target: [NUMBER] concurrent operations without rate limiting
+    - Test Method: Load testing with multiple agent workflows
   </template>
 </section>
 
@@ -422,6 +501,15 @@ Use the file-creator subagent to create the file: .agent-os/tasks/[TASK_ID]/vali
     - [ ] API contracts maintained
     - [ ] Database changes validated
     - [ ] External services tested
+
+    ### Trigger.dev Workflow Validation
+
+    - [ ] Agent workflows execute successfully end-to-end
+    - [ ] Real-time progress tracking functions correctly
+    - [ ] Error recovery and retry mechanisms work as expected
+    - [ ] MCP server integrations maintain data consistency
+    - [ ] Queue management handles concurrent operations properly
+    - [ ] Resource utilization meets performance targets
   </template>
 </section>
 
@@ -457,6 +545,15 @@ Use the file-creator subagent to create the following file: .agent-os/tasks/[TAS
 
     - [SERVICE_NAME]: [ENDPOINT] - [AUTHENTICATION_REQUIRED]
     - [SERVICE_NAME]: [ENDPOINT] - [AUTHENTICATION_REQUIRED]
+    - **Trigger.dev API**: https://api.trigger.dev - Project token required
+    - **Shared MCP Servers**: localhost:8001-8006 - Internal access
+
+    ### Trigger.dev Resources
+
+    - **Trigger.dev SDK Documentation**: https://trigger.dev/docs - Workflow and task patterns
+    - **Python Extension Guide**: https://trigger.dev/docs/python - Agno agent integration
+    - **Real-time Hooks**: https://trigger.dev/docs/realtime - Progress tracking implementation
+    - **Queue Management**: https://trigger.dev/docs/queues - Concurrency and rate limiting
 
     ### Reference Materials
 
@@ -475,6 +572,15 @@ Use the file-creator subagent to create the following file: .agent-os/tasks/[TAS
     2. [PREREQUISITE_2]
     3. [PREREQUISITE_3]
 
+    ### Trigger.dev Prerequisites
+
+    1. **Node.js 18+** - Required for Trigger.dev SDK
+    2. **Python 3.9+** - Required for Agno agent execution
+    3. **Trigger.dev Account** - Project setup and API access
+    4. **MCP Servers Running** - All 6 MCP servers operational on ports 8001-8006
+    5. **Environment Variables** - API keys for external services
+    6. **Agno Framework** - Existing agent scripts accessible
+
     ### Configuration
 
     ```bash
@@ -483,10 +589,48 @@ Use the file-creator subagent to create the following file: .agent-os/tasks/[TAS
     [COMMAND_2]
     ```
 
+    ### Trigger.dev Setup
+
+    ```bash
+    # Install Trigger.dev SDK
+    npm install @trigger.dev/sdk @trigger.dev/react-hooks
+
+    # Initialize Trigger.dev project
+    npx trigger.dev@latest init
+
+    # Configure Python extension for Agno agents
+    # Add to trigger.config.ts:
+    # pythonExtension({
+    #   scripts: ["./agent-ui/Agents/**/*.py"],
+    #   requirementsFile: "./requirements.txt"
+    # })
+    ```
+
+    ### MCP Server Verification
+
+    ```bash
+    # Verify MCP servers are running
+    curl -X POST http://localhost:8001/tools/list  # DeFAI
+    curl -X POST http://localhost:8002/tools/list  # Paintswap
+    curl -X POST http://localhost:8003/tools/list  # CoinCodex
+    curl -X POST http://localhost:8004/tools/list  # Discord Monitoring
+    curl -X POST http://localhost:8005/tools/list  # Finance Research
+    curl -X POST http://localhost:8006/tools/list  # Supabase
+    ```
+
     ### Verification
 
     - [ ] [VERIFICATION_STEP_1]
     - [ ] [VERIFICATION_STEP_2]
+
+    ### Trigger.dev Verification
+
+    - [ ] Trigger.dev project initialized and configured
+    - [ ] Python extension recognizes Agno agent scripts
+    - [ ] All MCP servers respond to health checks
+    - [ ] Queue configurations match workflow requirements
+    - [ ] Real-time monitoring hooks are functional
+    - [ ] Test agent workflow executes successfully
   </template>
 </section>
 

@@ -5,12 +5,8 @@
   "main": "http_srvcflo_agent.py",
   "scripts": {
     "start": "./start.sh",
-    "install-deps": "npm install && pip install -r requirements.txt",
     "test": "python -c 'import http_srvcflo_agent; print(\"Import test passed\")'",
-    "health-check": "curl -f http://localhost:${PORT:-8000}/health || exit 1",
-    "validate-env": "node -e 'const required=[\"AGNO_API_KEY\",\"OPENAI_API_KEY\",\"CHAINGPT_API_KEY\",\"CLOUDFLARE_RAG_TOKEN\",\"SRVCFLO_AGENT_TOKEN\"]; required.forEach(v => { if(!process.env[v]) throw new Error(`Missing ${v}`); }); console.log(\"Environment validation passed\");'",
-    "build": "echo 'Build completed - multi-runtime ready'",
-    "postinstall": "echo 'Dependencies installed successfully'"
+    "build": "echo 'Build completed - Python only'"
   },
   "dependencies": {},
   "devDependencies": {},

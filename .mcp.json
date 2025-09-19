@@ -1,105 +1,115 @@
 {
   "mcpServers": {
-        "serena": {
-          "type": "stdio",
-          "command": "cmd /c uvx",
-          "args": [
-            "--from",
-            "git+https://github.com/oraios/serena",
-            "serena",
-            "start-mcp-server",
-            "--context",
-            "ide-assistant",
-            "--project",
-            "C:\\Users\\PC\\ServiceApp"
-          ],
-          "env": {}
-        },
-        "http-server": {
-          "type": "stdio",
-          "command": "cmd /c uvx",
-          "args": [
-            "mcp-server-http"
-          ],
-          "env": {}
-        },
-        "ide": {
-          "type": "stdio",
-          "command": "cmd /c uvx",
-          "args": [
-            "mcp-server-ide"
-          ],
-          "env": {}
-        },
-        "openzeppelin": {
-          "type": "http",
-          "url": "https://mcp.openzeppelin.com/contracts/solidity/mcp"
-        },
-        "cloudflare": {
-          "type": "stdio",
-          "command": "uvx",
-          "args": [
-            "mcp-server-cloudflare"
-          ],
-          "env": {}
-        },
-        "playwright": {
-          "type": "stdio",
-          "command": "cmd /c npx",
-          "args": [
-            "@playwright/mcp@latest"
-          ],
-          "env": {}
-       },
-        "supabase": {
-          "type": "stdio",
-          "command": "python",
-          "args": [
-            "server/mcp_server.py"
-          ],
-          "cwd": "mcp-servers/supabase-mcp",
-          "env": {
-            "SUPABASE_URL": "${SUPABASE_URL:-}",
-            "SUPABASE_SERVICE_KEY": "${SUPABASE_SERVICE_KEY:-}",
-            "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
-          }
-        },
-        "paintswap-mcp": {
-          "type": "stdio",
-          "command": "python",
-          "args": [
-            "server.py"
-          ],
-          "cwd": "mcp-servers/paintswap-mcp",
-          "env": {
-            "PAINTSWAP_API_KEY": "${PAINTSWAP_API_KEY:-}",
-            "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
-          }
-        },
-        "finance-research-mcp": {
-          "type": "stdio",
-          "command": "python",
-          "args": [
-            "server.py"
-          ],
-          "cwd": "mcp-servers/finance-research-mcp",
-          "env": {
-            "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
-          }
-        },
-        "discord-monitoring-mcp": {
-          "type": "stdio",
-          "command": "python",
-          "args": [
-            "server.py"
-          ],
-          "cwd": "mcp-servers/discord-monitoring-mcp",
-          "env": {
-            "DISCORD_BOT_TOKEN": "${DISCORD_BOT_TOKEN:-}",
-            "TWITTER_CHANNEL_ID": "${TWITTER_CHANNEL_ID:-}",
-            "NFT_CHANNEL_ID": "${NFT_CHANNEL_ID:-}",
-            "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
-          }
-        }
+    "serena": {
+      "type": "stdio",
+      "command": "cmd /c uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--project",
+        "C:\\Users\\PC\\ServiceApp"
+      ],
+      "env": {}
+    },
+    "http-server": {
+      "type": "stdio",
+      "command": "cmd /c uvx",
+      "args": [
+        "mcp-server-http"
+      ],
+      "env": {}
+    },
+    "ide": {
+      "type": "stdio",
+      "command": "cmd /c uvx",
+      "args": [
+        "mcp-server-ide"
+      ],
+      "env": {}
+    },
+    "openzeppelin": {
+      "type": "http",
+      "url": "https://mcp.openzeppelin.com/contracts/solidity/mcp"
+    },
+    "cloudflare": {
+      "type": "stdio",
+      "command": "cmd /c npx",
+      "args": [
+        "mcp-server-cloudflare"
+      ],
+      "env": {}
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "cmd /c npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "env": {}
+    },
+    "supabase": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "server/mcp_server.py"
+      ],
+      "cwd": "mcp-servers/supabase-mcp",
+      "env": {
+        "SUPABASE_URL": "${SUPABASE_URL:-}",
+        "SUPABASE_SERVICE_KEY": "${SUPABASE_SERVICE_KEY:-}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
+      }
+    },
+    "paintswap-mcp": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "server.py"
+      ],
+      "cwd": "mcp-servers/paintswap-mcp",
+      "env": {
+        "PAINTSWAP_API_KEY": "${PAINTSWAP_API_KEY:-}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
+      }
+    },
+    "finance-research-mcp": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "server.py"
+      ],
+      "cwd": "mcp-servers/finance-research-mcp",
+      "env": {
+        "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
+      }
+    },
+    "discord-monitoring-mcp": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "server.py"
+      ],
+      "cwd": "mcp-servers/discord-monitoring-mcp",
+      "env": {
+        "DISCORD_BOT_TOKEN": "${DISCORD_BOT_TOKEN:-}",
+        "TWITTER_CHANNEL_ID": "${TWITTER_CHANNEL_ID:-}",
+        "NFT_CHANNEL_ID": "${NFT_CHANNEL_ID:-}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY:-}"
+      }
+    },
+    "trigger": {
+      "command": "npx",
+      "args": [
+        "trigger.dev@latest",
+        "mcp",
+        "--dev-only",
+        "--project-ref",
+        "proj_bexshkmaxgqlbtowblwe"
+      ]
     }
+  }
 }

@@ -35,6 +35,10 @@
           "type": "http",
           "url": "https://mcp.openzeppelin.com/contracts/solidity/mcp"
         },
+        "trigger": {
+          "command": "cmd /c uvx",
+          "args": ["trigger.dev@latest", "mcp"]
+        },
         "cloudflare": {
           "type": "stdio",
           "command": "cmd /c uvx",

@@ -1,0 +1,80 @@
+run
+​
+fastmcp.cli.run
+FastMCP run command implementation with enhanced type hints.
+​
+Functions
+​
+is_url 
+
+Copy
+is_url(path: str) -> bool
+Check if a string is a URL.
+​
+run_with_uv 
+
+Copy
+run_with_uv(server_spec: str, python_version: str | None = None, with_packages: list[str] | None = None, with_requirements: Path | None = None, project: Path | None = None, transport: TransportType | None = None, host: str | None = None, port: int | None = None, path: str | None = None, log_level: LogLevelType | None = None, show_banner: bool = True, editable: str | list[str] | None = None) -> None
+Run a MCP server using uv run subprocess.
+This function is called when we need to set up a Python environment with specific dependencies before running the server. The config parsing and merging should already be done by the caller.
+Args:
+server_spec: Python file, object specification (file:obj), config file, or URL
+python_version: Python version to use (e.g. “3.10”)
+with_packages: Additional packages to install
+with_requirements: Requirements file to use
+project: Run the command within the given project directory
+transport: Transport protocol to use
+host: Host to bind to when using http transport
+port: Port to bind to when using http transport
+path: Path to bind to when using http transport
+log_level: Log level
+show_banner: Whether to show the server banner
+editable: Editable package paths
+​
+create_client_server 
+
+Copy
+create_client_server(url: str) -> Any
+Create a FastMCP server from a client URL.
+Args:
+url: The URL to connect to
+Returns:
+A FastMCP server instance
+​
+create_mcp_config_server 
+
+Copy
+create_mcp_config_server(mcp_config_path: Path) -> FastMCP[None]
+Create a FastMCP server from a MCPConfig.
+​
+load_mcp_server_config 
+
+Copy
+load_mcp_server_config(config_path: Path) -> MCPServerConfig
+Load a FastMCP configuration from a fastmcp.json file.
+Args:
+config_path: Path to fastmcp.json file
+Returns:
+MCPServerConfig object
+​
+run_command 
+
+Copy
+run_command(server_spec: str, transport: TransportType | None = None, host: str | None = None, port: int | None = None, path: str | None = None, log_level: LogLevelType | None = None, server_args: list[str] | None = None, show_banner: bool = True, use_direct_import: bool = False, skip_source: bool = False) -> None
+Run a MCP server or connect to a remote one.
+Args:
+server_spec: Python file, object specification (file:obj), config file, or URL
+transport: Transport protocol to use
+host: Host to bind to when using http transport
+port: Port to bind to when using http transport
+path: Path to bind to when using http transport
+log_level: Log level
+server_args: Additional arguments to pass to the server
+show_banner: Whether to show the server banner
+use_direct_import: Whether to use direct import instead of subprocess
+skip_source: Whether to skip source preparation step
+​
+run_v1_server 
+
+Copy
+run_v1_server(server: FastMCP1x, host: str | None = None, port: int | None = None, trans

@@ -12,6 +12,15 @@
 !/.superdesign/
 !/.superdesign/**
 
+# Keep application directories
+!/agent-ui/
+!/agent-ui/**
+!/myserviceprovider-app/
+!/myserviceprovider-app/**
+!/CLAUDE.md
+!/DOCS/
+!/DOCS/**
+
 # Re-ignore secrets inside those kept dirs
 /.agent-os/**/.env
 /.agent-os/**/.env.*

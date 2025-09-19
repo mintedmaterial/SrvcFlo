@@ -1,0 +1,349 @@
+Compute Units
+A compute unit is a measurement of the computational resources required to fulfill a particular request for data via JSON RPC protocol. DRPC uses CUs to calculate the cost of a request, and also to track the workload of each data provider.
+
+Methods costs in CU
+All RPC methods cost a flat 20 compute units starting Monday 2nd June. The cost is $0.30 for 1M CU. This table is correct for all blockchains and networks that DRPC support. If you call a method that is not a part of this table, the default cost is 20 CU. If you think something is wrong, ask in our support portal.
+
+Ethereum and EVM: Polygon, Optimism, Base, BNB Smart Chain, Arbitrum
+Method	CU
+debug_traceBlockByHash	90 20
+debug_traceBlockByNumber	90 20
+debug_traceCall	90 20
+debug_traceTransaction	90 20
+eth_accounts	0
+eth_blockNumber	10 20
+eth_call	21 20
+eth_chainId	0
+eth_coinbase	0
+eth_createAccessList	30 20
+eth_estimateGas	60 20
+eth_feeHistory	15 20
+eth_gasPrice	15 20
+eth_getBalance	11 20
+eth_getBlockByHash	21 20
+eth_getBlockByHash#full	60 20
+eth_getBlockByNumber	24 20
+eth_getBlockByNumber#full	60 20
+eth_getBlockReceipts	80 20
+eth_getBlockTransactionCountByHash	15 20
+eth_getBlockTransactionCountByNumber	11 20
+eth_getCode	24 20
+eth_getFilterChanges	20 20
+eth_getFilterLogs	60 20
+eth_getLogs	60 20
+eth_getProof	11 20
+eth_getStorageAt	14 20
+eth_getTransactionByBlockHashAndIndex	19 20
+eth_getTransactionByBlockNumberAndIndex	13 20
+eth_getTransactionByHash	11 20
+eth_getTransactionCount	11 20
+eth_getTransactionReceipt	30 20
+eth_getUncleByBlockHashAndIndex	15 20
+eth_getUncleByBlockNumberAndIndex	15 20
+eth_getUncleCountByBlockHash	15 20
+eth_getUncleCountByBlockNumber	15 20
+eth_hashrate	0
+eth_maxPriorityFeePerGas	16 20
+eth_mining	0
+eth_newBlockFilter	20 20
+eth_newFilter	20 20
+eth_newPendingTransactionFilter	20 20
+eth_protocolVersion	0
+eth_sendRawTransaction	90 20
+eth_syncing	0
+eth_subscribe	10 20
+Notifications from the events you've subscribed to	25 20
+eth_uninstallFilter	10 20
+eth_unsubscribe	10 20
+net_listening	0
+net_peerCount	0
+net_version	0
+trace_block	90 20
+trace_call	60 20
+trace_callMany	90 20
+trace_filter	75 20
+trace_get	20 20
+trace_rawTransaction	75 20
+trace_replayBlockTransactions	90 20
+trace_replayBlockTransactions#vmTrace	300 20
+trace_replayTransaction	90 20
+trace_replayTransaction#vmTrace	300 20
+trace_transaction	90 20
+txpool_content	1000 20
+web3_clientVersion	0
+web3_sha3	10 20
+bor_getAuthor	10 20
+bor_getCurrentProposer	10 20
+bor_getCurrentValidators	10 20
+bor_getRootHash	10 20
+bor_getSignersAtHash	10 20
+Bitcoin
+Method	CU
+estimatesmartfee	30 20
+getbestblockhash	30 20
+getblock	30 20
+getblockchaininfo	30 20
+getblockcount	30 20
+getblockhash	30 20
+getblocknumber	30 20
+getconnectioncount	0
+getmemorypool	100 20
+getnetworkinfo	0
+getreceivedbyaddress	30 20
+getrawtransaction	30 20
+gettransaction	30 20
+gettxout	30 20
+listunspent	30 20
+sendrawtransaction	100 20
+Solana
+Method	Cost
+accountSubscribe	10 20
+accountUnsubscribe	0
+blockSubscribe	10 20
+blockUnsubscribe	0
+Notifications from the events you've subscribed to	25 20
+getAccountInfo	10 20
+getBalance	12 20
+getBlock	66 20
+getBlockCommitment	5 20
+getBlockHeight	11 20
+getBlockProduction	13 20
+getBlockTime	9 20
+getBlocks	12 20
+getBlocksWithLimit	5 20
+getClusterNodes	23 20
+getConfirmedBlock	151 20
+getConfirmedBlocks	10 20
+getConfirmedSignaturesForAddress2	35 20
+getConfirmedTransaction	38 20
+getEpochInfo	9 20
+getEpochSchedule	10 20
+getFirstAvailableBlock	33 20
+getFeeCalculatorForBlockhash	11 20
+getFeeForMessage	10 20
+getFees	10 20
+getGenesisHash	13 20
+getHealth	0
+getHighestSnapshotSlot	9 20
+getInflationGovernor	10 20
+getInflationRate	8 20
+getInflationReward	341 20
+getIdentity	5 20
+getLatestBlockhash	7 20
+getLeaderSchedule	5 20
+getLargestAccounts	3000 20
+getMaxRetransmitSlot	8 20
+getMultipleAccounts	11 20
+getMinimumBalanceForRentExemption	12 20
+getRecentBlockhash	12 20
+getRecentPerformanceSamples	8 20
+getRecentPrioritizationFees	20 20
+getSignaturesForAddress	28 20
+getSignatureStatuses	11 20
+getSlot	7 20
+getSlotLeader	11 20
+getSlotLeaders	16 20
+getStakeActivation	10 20
+getSupply	822 20
+getTokenAccountBalance	9 20
+getTokenAccountsByDelegate	10 20
+getTokenAccountsByOwner	12 20
+getTokenLargestAccounts	10 20
+getTokenSupply	14 20
+getTransaction	59 20
+getTransactionCount	16 20
+getVoteAccounts	5 20
+getVersion	10 20
+isBlockhashValid	10 20
+logsSubscribe	10 20
+logsUnsubscribe	0
+programSubscribe	10 20
+programUnsubscribe	0
+requestAirdrop	5 20
+sendTransaction	10 20
+simulateTransaction	11 20
+signatureSubscribe	10 20
+signatureUnsubscribe	0
+slotSubscribe	10 20
+slotUnsubscribe	0
+Starknet
+Method	Cost
+starknet_addDeclareTransaction	250 20
+starknet_addDeployAccountTransaction	250 20
+starknet_addInvokeTransaction	250 20
+starknet_blockHashAndNumber	10 20
+starknet_blockNumber	10 20
+starknet_call	26 20
+starknet_chainId	10 20
+starknet_estimateFee	87 20
+starknet_estimateMessageFee	87 20
+starknet_getBlockTransactionCount	16 20
+starknet_getBlockWithTxHashes	16 20
+starknet_getBlockWithTxs	16 20
+starknet_getClass	19 20
+starknet_getClassAt	19 20
+starknet_getClassHashAt	19 20
+starknet_getEvents	75 20
+starknet_getNonce	26 20
+starknet_getStateUpdate	21 20
+starknet_getStorageAt	17 20
+starknet_getTransactionByBlockIdAndIndex	15 20
+starknet_getTransactionByHash	17 20
+starknet_getTransactionReceipt	15 20
+starknet_pendingTransactions	50 20
+starknet_syncing	10 20
+harmony
+Method	Cost
+hmy_call	21 20
+hmy_blockNumber	10 20
+hmy_getAllValidatorAddresses	10 20
+hmy_getAllValidatorInformation	30 20
+hmy_getAllValidatorInformationByBlockNumber	10 20
+hmy_getBalance	11 20
+hmy_getBalanceByBlockNumber	11 20
+hmy_getBlockByHash	21 20
+hmy_getBlockByNumber	24 20
+hmy_getBlockSigners	10 20
+hmy_getBlockTransactionCountByHash	15 20
+hmy_getBlockTransactionCountByNumber	11 20
+hmy_getBlocks	60 20
+hmy_getCXReceiptByHash	11 20
+hmy_getCirculatingSupply	5 20
+hmy_getCode	24 20
+hmy_getCurrentStakingErrorSink	5 20
+hmy_getCurrentTransactionErrorSink	5 20
+hmy_getDelegationsByDelegator	15 20
+hmy_getDelegationsByDelegatorAndValidator	15 20
+hmy_getDelegationsByValidator	15 20
+hmy_getElectedValidatorAddresses	5 20
+hmy_getEpoch	10 20
+hmy_getFilterChanges	20 20
+hmy_getFilterLogs	60 20
+hmy_getGasPrice	15 20
+hmy_getLeader	5 20
+hmy_getLatestHeader	20 20
+hmy_getLogs	60 20
+hmy_getMedianRawStakeSnapshot	5 20
+hmy_getNonce	11 20
+hmy_getPendingCXReceipts	30 20
+hmy_getPendingCrossLinks	10 20
+hmy_getShardingStructure	20 20
+hmy_getSignedBlocks	5 20
+hmy_getStakingNetworkInfo	15 20
+hmy_getStakingTransactionByBlockHashAndIndex	19 20
+hmy_getStakingTransactionByBlockNumberAndIndex	13 20
+hmy_getStakingTransactionByHash	11 20
+hmy_getStorageAt	14 20
+hmy_getTotalSupply	5 20
+hmy_getTransaction	59 20
+hmy_getTransactionByBlockHashAndIndex	19 20
+hmy_getTransactionByBlockNumberAndIndex	13 20
+hmy_getTransactionByHash	11 20
+hmy_getTransactionCount	11 20
+hmy_getTransactionReceipt	30 20
+hmy_getValidators	10 20
+hmy_gasPrice	15 20
+hmy_isBlockSigner	5 20
+hmy_isLastBlock	5 20
+hmy_latestHeader	20 20
+hmy_newBlockFilter	20 20
+hmy_newFilter	20 20
+hmy_newPendingTransactionFilter	20 20
+hmy_pendingTransactions	30 20
+hmy_sendRawStakingTransaction	90 20
+hmy_sendRawTransaction	90 20
+hmy_syncing	0
+hmyv2_blockNumber	10 20
+hmyv2_getBalance	11 20
+hmyv2_getBalanceByBlockNumber	11 20
+hmyv2_getBlockByHash	21 20
+hmyv2_getBlockByNumber	24 20
+hmyv2_getBlockTransactionCountByHash	15 20
+hmyv2_getBlockTransactionCountByNumber	11 20
+hmyv2_getCXReceiptByHash	11 20
+hmyv2_getCurrentTransactionErrorSink	5 20
+hmyv2_getEpoch	10 20
+hmyv2_getPendingCXReceipts	30 20
+hmyv2_getPendingCrossLinks	10 20
+hmyv2_getStakingTransactionByBlockHashAndIndex	19 20
+hmyv2_getStakingTransactionByBlockNumberAndIndex	13 20
+hmyv2_getStakingTransactionByHash	11 20
+hmyv2_getTransactionByBlockHashAndIndex	19 20
+hmyv2_getTransactionByBlockNumberAndIndex	13 20
+hmyv2_getTransactionByHash	11 20
+hmyv2_getTransactionCount	11 20
+hmyv2_getTransactionReceipt	30 20
+hmyv2_getTransactionsHistory	60 20
+hmyv2_gasPrice	15 20
+hmyv2_getValidators	10 20
+hmyv2_pendingTransactions	30 20
+hmyv2_getBlocks	60 20
+zkevm
+Method	Cost
+zkevm_batchNumber	10 20
+zkevm_batchNumberByBlockNumber	10 20
+zkevm_consolidatedBlockNumber	10 20
+zkevm_getBatchByNumber	15 20
+zkevm_getBroadcastURI	5 20
+zkevm_isBlockConsolidated	5 20
+zkevm_isBlockVirtualized	5 20
+zkevm_virtualBatchNumber	10 20
+zkevm_verifiedBatchNumber	10 20
+zksync
+Method	Cost
+zks_estimateFee	60 20
+zks_estimateGasL1ToL2	60 20
+zks_getAllAccountBalances	11 20
+zks_getBlockDetails	20 20
+zks_getBridgeContracts	10 20
+zks_getBytecodeByHash	500 20
+zks_getConfirmedTokens	30 20
+zks_getL1BatchBlockRange	10 20
+zks_getL1BatchDetails	20 20
+zks_getL2ToL1LogProof	30 20
+zks_getL2ToL1MsgProof	30 20
+zks_getMainContract	10 20
+zks_getRawBlockTransactions	20 20
+zks_getTestnetPaymaster	10 20
+zks_getTokenPrice	10 20
+zks_getTransactionDetails	11 20
+zks_L1BatchNumber	10 20
+zks_L1ChainId	5 20
+Linea
+Method	Cost
+linea_estimateGas	60 20
+NEAR
+Method	Cost
+block	10 20
+chunk	10 20
+gas_price	10 20
+network_info	10 20
+query	10 20
+send_tx	20 20
+status	10 20
+tx	10 20
+validators	10 20
+Cosmos
+Method	Cost
+abci_info	20 20
+abci_query	20 20
+block_by_hash	20 20
+block_results	20 20
+block_search	20 20
+blockchain	20 20
+broadcast_tx	20 20
+broadcast_tx_commit	20 20
+check_tx	20 20
+commit	20 20
+consensus_params	20 20
+consensus_state	20 20
+dump_consensus_state	20 20
+genesis_chunked	20 20
+header	20 20
+header_by_hash	20 20
+health	20 20
+lag_status	20 20
+num_unconfirmed_txs	20 20
+status	20 20
+tx	20 20
+tx_search	20 20

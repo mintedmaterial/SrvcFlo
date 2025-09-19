@@ -1,0 +1,29 @@
+name = "serviceflow-claude-bridge"
+main = "src/claude-bridge-worker.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat", "nodejs_als"]
+
+# Claude bridge routes
+routes = [
+  { pattern = "claude.srvcflo.com/*", zone_id = "4603a67bfb4408bd3032c8df61372cb0" },
+  { pattern = "api-claude.srvcflo.com/*", zone_id = "4603a67bfb4408bd3032c8df61372cb0" }
+]
+
+# Cloudflare AI binding for Claude integration
+[ai]
+binding = "AI"
+
+# KV for Claude agent interactions
+[[kv_namespaces]]
+binding = "KV_STORE"
+id = "eb9dda04c33d4622a6d87b159b0a5a7d"
+
+# R2 for Claude agent data storage
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "serviceflow-ai-content"
+
+# Environment variables for Claude bridge
+[vars]
+SONIC_RPC_URL = "https://rpc.soniclabs.com"
+ENVIRONMENT = "production"
