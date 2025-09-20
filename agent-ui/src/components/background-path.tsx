@@ -242,7 +242,7 @@ function useLogoRain() {
         if (drop.img && drop.img.complete) {
           // Enhanced visibility with better alpha values
           ctx.globalAlpha = z === "behind" ? 0.3 : 0.7
-          
+
           // Add slight shadow effect for better visibility
           if (z === "above") {
             ctx.shadowColor = "rgba(0,0,0,0.3)"
@@ -250,9 +250,13 @@ function useLogoRain() {
             ctx.shadowOffsetX = 2
             ctx.shadowOffsetY = 2
           }
-          
-          ctx.drawImage(drop.img, drop.x, drop.y, drop.size, drop.size)
-          
+
+          try {
+            ctx.drawImage(drop.img, drop.x, drop.y, drop.size, drop.size)
+          } catch (error) {
+            console.warn('Error drawing image:', error)
+          }
+
           // Reset shadow
           if (z === "above") {
             ctx.shadowColor = "transparent"
